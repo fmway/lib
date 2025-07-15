@@ -12,7 +12,7 @@
     };
     result = import ./lib/fmway/treeImport.nix var {
       folder = ./lib/fmway;
-      variables = { inherit lib inputs; };
+      variables = { inherit lib final; };
       depth = 0;
     };
   in result // result.parser;
@@ -24,30 +24,37 @@
     sugarify = { ... } @ sugars': mkInfuse (fmway.uniqLastBy (x: x.name) (sugars ++ lib.attrsToList sugars'));
   };
   infuse = mkInfuse defaultInfuse.v1.default-sugars;
-  overlay = self: super: {
+  final = {
     inherit fmway infuse readTree mapListToAttrs;
     inherit (fmway) mkFlake;
   };
+  overlay = self: super: final;
   finalLib = lib.extend overlay;
   mapListToAttrs = fn: l: lib.listToAttrs (map fn l);
 in {
   inherit fmway infuse readTree;
   lib = finalLib;
-
-  templates = let
-    dir = ./templates;
-    list = with lib; attrNames (
-      filterAttrs (k: _: pathIsRegularFile "${dir}/${k}/flake.nix") (
-        builtins.readDir dir
-      )
-    );
-  in mapListToAttrs (name: {
-    inherit name;
-    value = let
-      path = "${dir}/${name}";
-      description = (import "${path}/flake.nix").description or "";
-    in { inherit path description; };
-  }) list;
-
   overlays.default = overlay;
-} // fmway.genModules' [ "nixosModules" "homeManagerModules" ] ./modules { lib = finalLib; inherit fmway infuse readTree inputs; }
+  
+  # wrap mkShell to handle lorri shellHook problems
+  overlays.devshell-lorri-fix = self: super: {
+    mkShell = rec {
+      override = { ... } @ a: { shellHook ? "", ... } @ v: let
+        args = removeAttrs v [ "shellHook" ] // lib.optionalAttrs (shellHook != "") {
+          shellHook = ''
+            # if not inside lorri env
+            if [[ "$0" =~ bash$ ]]; then
+              . "${shellHook'}"
+            else
+              cat "${shellHook'}"
+            fi
+          '';
+        };
+        shellHook' = self.writeScript "shellHook.sh" shellHook;
+      in super.mkShell.override a args;
+      inherit (super.mkShell) __functionArgs;
+      __functor = s: override {};
+    };
+    mkShellNoCC = self.mkShell.override { stdenv = self.stdenvNoCC; };
+  };
+}
