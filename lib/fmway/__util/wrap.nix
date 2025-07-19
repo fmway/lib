@@ -1,6 +1,6 @@
 { final, ... }:
 {
-  mkFlake = { inputs, strict-packages ? true, ... } @ v1: let
+  mkFlake = { inputs, ... } @ v1: let
     inherit (inputs) flake-parts;
     inherit (inputs.nixpkgs) lib;
     overlay = lib: x:
@@ -20,7 +20,7 @@
         flake-parts = flake-parts.lib;
       }
     ] ++ lib.flatten [ default ];
-    arg1 = removeAttrs v1 [ "strict-packages" ] // {
+    arg1 = v1 // {
       specialArgs = (v1.specialArgs or {}) // {
         lib = overlay lib overlay-lib;
       };
@@ -29,18 +29,6 @@
     debug = lib.mkDefault true;
     imports = lib.optionals (inputs ? systems) [
       { systems = lib.mkDefault (import inputs.systems); }
-    ] ++ lib.optionals (!strict-packages) [
-      # don't strict packages
-      ({ lib, flake-parts-lib, ... }: {
-        disabledModules = [ "${flake-parts}/modules/packages.nix" ];
-      } // flake-parts-lib.mkTransposedPerSystemModule {
-        name = "packages";
-        option = lib.mkOption {
-          type = with lib.types; lazyAttrsOf anything;
-          default = { };
-        };
-        file = ./packages.nix;
-      })
     ] ++ lib.optionals (inputs ? fmway-modules) [
       inputs.fmway-modules.flakeModules.nixpkgs
       {
