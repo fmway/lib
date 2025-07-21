@@ -13,7 +13,7 @@
     fromTOML
   ;
   # FIXME
-  listNeedFixed = [ "$" "{" "}" "." "(" ")" "[" ];
+  listNeedFixed = [ "$" "{" "}" "." "(" ")" "[" "|" ];
 
   fixedInMatch = str:
     lib.foldl' (acc: curr: acc + (if lib.any (x: curr == x) listNeedFixed then "[${curr}]" else curr)) "" (lib.splitString "" str);
@@ -88,33 +88,43 @@
     _key = key;
   };
 
-  mkParse' = { _debug ? false, prefix ? "{{", postfix ? "}}", ... } @ variables: str: let
-    fixedPrefix = fixedInMatch prefix;
-    fixedPostfix= fixedInMatch postfix;
+  getMatch = prefixs: postfixs: fn:
+    root.match' (map (i: fn (lib.elemAt prefixs i) (lib.elemAt postfixs i)) (lib.range 0 (lib.length prefixs - 1)));
+
+  mkParse' = { _debug ? false, ... } @ variables: let
+    prefix = root.flat (variables.prefix or "{{");
+    postfix= root.flat (variables.postfix or "}}");
+  in lib.throwIfNot (lib.length prefix == lib.length postfix) "both prefix and postfix doesn't match"
+  (str: let
     fn = res: s: 
       if s == "" then
         res
       else let
-        matches = lib.match "^(.*)${fixedPrefix}(.+)${fixedPostfix}(.*)$" s;
-      in if isNull matches then
+        matches = getMatch prefix postfix (prefix: postfix: let
+          fixedPrefix = fixedInMatch prefix;
+          fixedPostfix= fixedInMatch postfix;
+        in "^(.*)${fixedPrefix}(.+)${fixedPostfix}(.*)$") s;
+      in if ! matches.isMatch then
         fn (res ++ [s]) ""
       else let
-        pre = lib.elemAt matches 0;
-        c   = lib.elemAt matches 1;
-        ctx = getCtx c postfix;
+        pre = lib.elemAt matches.data 0;
+        c   = lib.elemAt matches.data 1;
+        po  = lib.elemAt postfix matches.index;
+        pr  = lib.elemAt prefix  matches.index;
+        ctx = getCtx c po;
         rest=
           if ctx.pre == "" && ctx.post == "" then
-            "${prefix}${c}${postfix}"
+            "${pr}${c}${po}"
           else toExpr ctx.pre;
-        post= lib.elemAt matches 2;
+        post= lib.elemAt matches.data 2;
         r   =
           fn [] pre
-        ++lib.warnIf _debug "(mkParse) found: ${prefix}${ctx.pre'}${postfix}" [rest]
+        ++lib.warnIf _debug "(mkParse) found: ${pr}${ctx.pre'}${po}" [rest]
         ++lib.optional (ctx.post' != "") ctx.post' ++ fn [] post;
       in fn r "";
 
     res = fix (fn [] str) variables;
-  in  lib.warnIf _debug "(mkParse) result: ${res.expr}" res.text;
+  in  lib.warnIf _debug "(mkParse) result: ${res.expr}" res.text);
 in {
   inherit fromJSON fromTOML;
   fromYAML = yaml: self.readYAML (builtins.toFile "file.yaml" yaml);
