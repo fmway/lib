@@ -4,8 +4,8 @@
     isAttrs
     attrNames
     foldl'
-    match
     head
+    tail
     isList
     filter
     any
@@ -34,11 +34,36 @@
         lib.optionalString ((i != 1 || with-first) && lib.trim x != "") indent + x
       ) (lib.splitString "\n" str)
     );
+
+  doMatch = matches: str: res:
+    if ! isList matches then
+      doMatch [matches] str { index = 0; }
+    else if matches == [] then
+      { isMatch = false; data = null; index = -1; }
+    else let
+      r = builtins.match (head matches) str;
+    in if isNull r then
+      doMatch (tail matches) str (res // { index = res.index + 1; })
+    else (res // { isMatch = true; data = r; })
+  ;
 in {
   inherit removeSuffix removePrefix hasPrefix hasSuffix replaceStrings;
   addIndent = addIndent true;
   addIndent'= addIndent false;
 } // rec {
+  # match :: [String] -> String -> [Null | String] | Null
+  # builtins.match but support list
+  match  = matches: str: (match' matches str).data;
+
+  # match :: [String] -> String -> [Null | String] | Null
+  # for debugging
+  match' = matches: str: doMatch matches str { index = 0; };
+
+  # flat :: Elem -> [Elem]
+  # convert any Elem except List to [Elem]
+  flat = x:
+    if isList x then x
+    else [x];
 
   # uniqBy' :: (Elem -> String) -> [Any] -> [Any]
   uniqBy = fn: arr:
@@ -78,7 +103,7 @@ in {
   # basename :: String -> String
   basename = k: let
     bs = baseNameOf k;
-    matched = match "^(.*)\\.(.*)$" bs;
+    matched = builtins.match "^(.*)\\.(.*)$" bs;
   in if matched == null then bs else head matched;
 
   # getFilename :: (Path | String) -> String
@@ -134,7 +159,7 @@ in {
     in if length filtered < 1 then false else true
   else let
     targetStr = toString target;
-    matched = match regex targetStr;
+    matched = builtins.match regex targetStr;
   in if isNull matched then false else true;
 
   # removePrefix' :: (String | [String]) -> (Path | String) -> String
