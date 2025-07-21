@@ -1,6 +1,7 @@
-{ self, nixpkgs, ... } @ inputs: let
+{ nixpkgs, ... } @ inputs: let
   inherit (nixpkgs) lib;
-  readTree = import inputs.read-tree {};
+  sources = import ./sources;
+  readTree = import sources.read-tree {};
   fmway = let
     var = { inherit lib root; };
     small = import ./lib/fmway/__util/small-functions.nix var;
@@ -16,7 +17,7 @@
       depth = 0;
     };
   in result // result.parser;
-  prevInfuse = import inputs.infuse-nix;
+  prevInfuse = import sources.infuse-nix;
   defaultInfuse = prevInfuse { inherit lib; };
   mkInfuse = sugars: {
     _sugars = sugars;

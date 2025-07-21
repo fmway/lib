@@ -1,0 +1,11 @@
+{
+  "read-tree": {
+    "url": "https://code.tvl.fyi/plain/nix/readTree/default.nix",
+    "type": "file",
+    "sha256": "sha256-5rHD/vbgCiDfFciGGhLvkQQv/XZAEyB5hC6X5vypNDg="
+  },
+  "infuse-nix": {
+    "url": "https://codeberg.org/amjoseph/infuse.nix/archive/trunk.tar.gz",
+    "sha256": "sha256-N+u3vnK3zyXLUuDj/vr62r9tM7uarhKVCaLHWxjo/YY="
+  }
+}
