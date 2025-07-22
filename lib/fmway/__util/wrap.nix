@@ -1,4 +1,4 @@
-{ final, ... }:
+{ final, self', ... }:
 {
   mkFlake = { inputs, ... } @ v1: let
     inherit (inputs) flake-parts;
@@ -34,6 +34,7 @@
       {
         perSystem = { ... }: {
           nixpkgs.overlays = [
+            self'.overlays.devshell-lorri-fix
             (self: super: {
               lib = overlay super.lib overlay-lib;
             })
@@ -41,6 +42,11 @@
         };
       }
     ] ++ [
+      {
+        perSystem = { pkgs, lib, ... }: {
+          legacyPackages = lib.mkDefault pkgs;
+        };
+      }
       arg2
     ];
   });
