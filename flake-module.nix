@@ -32,8 +32,7 @@
   overlay = self: super: final;
   finalLib = lib.extend overlay;
   mapListToAttrs = fn: l: lib.listToAttrs (map fn l);
-in {
-  inherit fmway infuse readTree;
+in final // {
   lib = finalLib;
   overlays.default = overlay;
   
