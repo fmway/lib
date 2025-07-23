@@ -1,5 +1,9 @@
-{ lib, root, ... }:
-{
+{ lib, self', ... }: let
+  inherit (self'.fmway)
+    toCamelCase
+    withImport'
+  ;
+in {
   genModules' = shareds: moduleDir: args: let
     modulesPath = builtins.toPath moduleDir;
     re = lib.pipe modulesPath [
@@ -7,7 +11,7 @@
       (lib.filterAttrs (_: v: v == "directory"))
       (lib.attrNames)
       (map (dir: let
-        scope = "${root.toCamelCase dir}Modules";
+        scope = "${toCamelCase dir}Modules";
       in {
         name = scope;
         value = let
@@ -29,7 +33,7 @@
             in {
               name = module;
               value = let
-                r = exc: root.withImport' _file (lib.optionalAttrs (scope != "SharedModules") {
+                r = exc: withImport' _file (lib.optionalAttrs (scope != "SharedModules") {
                   allModules = map (x: final.${scope}.${x}) (
                     lib.filter (x:
                       x != module &&
@@ -63,5 +67,5 @@
     };
   in final;
 
-  genModules = root.genModules' [ "nixosModules" "nixDarwinModules" "homeManagerModules" ];
+  genModules = self'.fmway.genModules' [ "nixosModules" "nixDarwinModules" "homeManagerModules" ];
 }

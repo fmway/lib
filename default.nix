@@ -1,8 +1,8 @@
 let
-  res = import ./flake-module.nix {
+  self = import ./flake-module.nix {
     nixpkgs.lib = import <nixpkgs/lib>;
+    inherit self;
   };
-in res.fmway // {
-  inherit (res) fmway infuse readTree;
-  finalLib = res.lib;
+in self.fmway // removeAttrs self [ "lib" "overlays" ] // {
+  finalLib = self.lib;
 }

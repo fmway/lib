@@ -1,4 +1,4 @@
-{ root, lib, ... }: let
+{ self', lib, ... }: let
   inherit (builtins)
     foldl'
     isPath
@@ -7,7 +7,7 @@
     path
     throwIfNot
   ;
-  inherit (root)
+  inherit (self'.fmway)
     getNixs
     getDefaultNixs
     getNixsWithDefault

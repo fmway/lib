@@ -1,4 +1,4 @@
-{ root, lib, ... }: let
+{ self', lib, ... }: let
   inherit (builtins)
     functionArgs
     attrNames
@@ -17,8 +17,8 @@
     result = listToAttrs (map (name: {
       inherit name;
       value = if hasAttr name variables then variables.${name}
-        else if hasAttr name root then root.${name}
-        else if name == "lib" then lib
+        else if hasAttr name self' then self'.${name}
+        else if hasAttr name self'.fmway then self'.fmway.${name}
         else throw "(getRequiredArgs) argument ${name} not found :(";
     }) argNames);
   in result;

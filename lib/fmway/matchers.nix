@@ -1,11 +1,11 @@
-{ root, lib, ... }: let
+{ self', lib, ... }: let
   inherit (builtins)
     isString
     isAttrs
     mapAttrs
     filter
   ;
-  inherit (root)
+  inherit (self'.fmway)
     hasSuffix'
     hasRegex
     hasFilename

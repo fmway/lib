@@ -1,4 +1,4 @@
-{ root, lib, ... }: let
+{ self', lib, ... }: let
   inherit (builtins)
     isPath
     isAttrs
@@ -15,7 +15,7 @@
     any
   ;
 
-  inherit (root)
+  inherit (self'.fmway)
     getNixsWithDefault
     getDefaultNixs
     getNixs
@@ -38,7 +38,7 @@
     var =
       if isNull variables then
         variables
-      else root // variables;
+      else self'.fmway // variables;
     path = folder + "/${curr}";
   in {
     "${basename curr}" = doImport path var;

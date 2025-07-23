@@ -1,9 +1,9 @@
-{ root, lib, ... }: let
+{ self', lib, ... }: let
   inherit (builtins)
     filter
     isPath
   ;
-  inherit (root)
+  inherit (self'.fmway)
     tree-path
     hasSuffix'
     excludePrefix

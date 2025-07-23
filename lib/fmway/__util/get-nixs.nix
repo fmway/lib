@@ -1,4 +1,4 @@
-{ root, lib, ... }: let
+{ self', lib, ... }: let
  inherit (builtins)
   pathExists
   readDir
@@ -11,7 +11,7 @@
   mapAttrsToList
  ;
 
- inherit (root)
+ inherit (self'.fmway)
   hasSuffix'
  ;
 in rec {

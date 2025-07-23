@@ -1,4 +1,4 @@
-{ root, lib, allFunc ? root, ... }: let
+{ self', lib, allFunc ? self'.fmway, ... }: let
   inherit (builtins)
     length
     head
@@ -20,13 +20,12 @@
     getAttrFromPath
   ;
 
-  inherit (root)
+  inherit (self'.fmway)
     tree-path
     excludeItems
     hasPrefix'
     doImport
     matchers
-    excludePrefix
     removePrefix'
     removeExtension
   ;
@@ -107,10 +106,10 @@
       in is-a-var || less-than-max) lists;
 
     filteredByDepth = filter (x: let
-      splitted = let
+      split' = let
         res = splitString "/" x;
       in if last res == "default.nix" then take (length res - 1) res else res;
-    in length splitted >= depth) filteredByMax;
+    in length split' >= depth) filteredByMax;
     
     filteredByExcludes = filter (x: ! lib.any (y: let path = toString y; in
       if isNull (lib.match "^/.*" path) then
@@ -126,9 +125,9 @@
       length filtered >= 1) filteredByExcludes;
 
     res = foldl' (acc: curr: let
-      splitted = splitString "/" curr;
+      split' = splitString "/" curr;
       path = folder + "/${curr}";
-    in recursiveUpdate acc (toObj splitted path)) {} filteredByIncludes;
+    in recursiveUpdate acc (toObj split' path)) {} filteredByIncludes;
     result = toImport res null result includess variables [] [];
   # in toImport res null res variables [];
   in if enable then result else {};

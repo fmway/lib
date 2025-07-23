@@ -1,4 +1,4 @@
-{ lib, self, root, ... }: let
+{ lib, self, self', ... }: let
   inherit (lib)
     fileContents
   ;
@@ -7,8 +7,14 @@
   #   runCommand
   # ;
 
+  inherit (self'.fmway)
+    addIndent
+    match'
+    flat
+  ;
+
   inherit (builtins)
-    readFile
+    # readFile
     fromJSON
     fromTOML
   ;
@@ -61,7 +67,7 @@
     in {
       idx = if lib.isString curr || curr ? _key || curr ? _let then acc.idx else acc.idx + 1;
       _let= acc._let + lib.optionalString (curr ? _let) "${curr._let}\n";
-      ctx = acc.ctx + lib.optionalString (curr ? _expr) (root.addIndent "  " "${key} = ${curr._expr};\n");
+      ctx = acc.ctx + lib.optionalString (curr ? _expr) (addIndent "  " "${key} = ${curr._expr};\n");
       gen = acc.gen + (if lib.isStringLike res then res else builtins.toJSON res);
     }) { idx = 0; _let = ""; ctx = ""; gen = ""; } arr;
 
@@ -89,11 +95,11 @@
   };
 
   getMatch = prefixs: postfixs: fn:
-    root.match' (map (i: fn (lib.elemAt prefixs i) (lib.elemAt postfixs i)) (lib.range 0 (lib.length prefixs - 1)));
+    match' (map (i: fn (lib.elemAt prefixs i) (lib.elemAt postfixs i)) (lib.range 0 (lib.length prefixs - 1)));
 
   mkParse' = { _debug ? false, ... } @ variables: let
-    prefix = root.flat (variables.prefix or "{{");
-    postfix= root.flat (variables.postfix or "}}");
+    prefix = flat (variables.prefix or "{{");
+    postfix= flat (variables.postfix or "}}");
   in lib.throwIfNot (lib.length prefix == lib.length postfix) "both prefix and postfix doesn't match"
   (str: let
     fn = res: s: 

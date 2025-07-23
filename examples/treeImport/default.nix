@@ -1,3 +1,3 @@
 let
-  inherit (import ../../.) lib;
-in lib.fmway.treeImport ./.
+  inherit (import ../../.) fmway;
+in fmway.treeImport ./.
