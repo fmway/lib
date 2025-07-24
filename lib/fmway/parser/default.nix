@@ -97,7 +97,7 @@
   getMatch = prefixs: postfixs: fn:
     match' (map (i: fn (lib.elemAt prefixs i) (lib.elemAt postfixs i)) (lib.range 0 (lib.length prefixs - 1)));
 
-  mkParse' = { _debug ? false, ... } @ variables: let
+  mkParse' = { _debug ? false, _transpose ? (x: x), ... } @ variables: let
     prefix = flat (variables.prefix or "{{");
     postfix= flat (variables.postfix or "}}");
   in lib.throwIfNot (lib.length prefix == lib.length postfix) "both prefix and postfix doesn't match"
@@ -130,7 +130,7 @@
       in fn r "";
 
     res = fix (fn [] str) variables;
-  in  lib.warnIf _debug "(mkParse) result: ${res.expr}" res.text);
+  in lib.warnIf _debug "(mkParse) result: ${res.expr}" (_transpose res.text));
 in {
   inherit fromJSON fromTOML;
   fromYAML = yaml: self.readYAML (builtins.toFile "file.yaml" yaml);
