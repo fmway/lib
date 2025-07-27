@@ -1,9 +1,15 @@
 { self', lib, sources, ... }: let
-  prevInfuse = import sources.infuse-nix;
-  defaultInfuse = prevInfuse { inherit lib; };
-  mkInfuse = sugars: {
-    _sugars = sugars;
-    __functor = self': (prevInfuse { inherit lib; sugars = self'._sugars; }).v1.infuse;
-    sugarify = { ... } @ sugars': mkInfuse (self'.fmway.uniqLastBy (x: x.name) (sugars ++ lib.attrsToList sugars'));
+  fn = import sources.infuse-nix;
+  sugarify = sugars': let
+    sugars = let
+      x = if lib.isAttrs sugars' then lib.attrsToList sugars' else sugars';
+    in self'.fmway.uniqLastBy (x: x.name) (infuse.v1.default-sugars ++ x);
+    infuse = fn {
+      inherit lib sugars;
+    };
+  in infuse // {
+    __functor = self: self.v1.infuse;
   };
-in mkInfuse defaultInfuse.v1.default-sugars
+
+# FIXME recursive sugarify
+in sugarify {} // { inherit sugarify; }
