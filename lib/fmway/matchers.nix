@@ -31,7 +31,8 @@
   basic = mapAttrs (key: value: let
     func = value;
   in selector: {
-    _type = "matcher-by-${key}";
+    _type = "matcher";
+    _by-ext = key == "extension";
     isMatchedIn = path: func selector path;
     read = path: variables: fileContents path;
     inherit selector;
@@ -54,34 +55,21 @@ in basic // (let
     excludeItems [ "__functor" ] func;
 in {
   nix = do (extension "nix" {
-    _type = "matcher-by-nix";
-    _by-ext = true;
     read = path: variables: doImport path variables;
   });
   json = do (extension "json" {
-    _type = "matcher-by-json";
-    _by-ext = true;
     read = path: _: parser.readJSON path;
   });
   jsonc = do (extension "jsonc" {
-    _type = "matcher-by-jsonc";
-    _by-ext = true;
     read = path: _: parser.readJSONC path;
   });
   yaml = do (extension "yaml" {
-    _type = "matcher-by-yaml";
-    _by-ext = true;
     read = path: _: parser.readYAML path;
   }); 
   toml = do (extension "toml" {
-    _type = "matcher-by-toml";
-    _by-ext = true;
     read = path: _: parser.readTOML path;
   });
   getExt = arr: let
-    filtered = filter (x:
-      ((x ? _type) && (x._type == "matcher-by-extension")) ||
-      ((x ? _by-ext) && x._by-ext)
-    ) arr;
+    filtered = filter (x: x._by-ext or false) arr;
   in map (x: x.selector) filtered;
 })

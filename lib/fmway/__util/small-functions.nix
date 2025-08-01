@@ -46,11 +46,41 @@
       doMatch (tail matches) str (res // { index = res.index + 1; })
     else (res // { isMatch = true; data = r; })
   ;
+
+  # FIXME
+  listNeedFixed = [ "$" "{" "}" "." "(" ")" "[" "|" ];
+
+  fixedInMatch = str:
+    lib.foldl' (acc: curr: acc + (if lib.any (x: curr == x) listNeedFixed then "[${curr}]" else curr)) "" (lib.splitString "" str);
 in {
-  inherit removeSuffix removePrefix hasPrefix hasSuffix replaceStrings;
+  inherit removeSuffix removePrefix hasPrefix hasSuffix replaceStrings fixedInMatch;
   addIndent = addIndent true;
   addIndent'= addIndent false;
 } // rec {
+  elem = fn: arrs:
+    foldl' (acc: curr: if fn curr then curr else acc) null arrs;
+
+  elem' = fn: arrs:
+    (foldl' (acc: curr: {
+      id = acc.id + 1;
+      res = if fn curr then acc.id else acc.res;
+    }) { id = 0; res = null; } arrs).res;
+
+  elemAttrs = fn: attrs:
+    foldl' (acc: curr: if fn curr attrs.${curr} then attrs.${curr} else acc) null (attrNames attrs);
+
+  elemAttrs' = fn: attrs:
+    foldl' (acc: curr: if fn curr attrs.${curr} then curr else acc) null (attrNames attrs);
+
+  # foldAttrs :: (Any -> Any -> Any) -> Any -> AttrSet -> Any
+  # different with lib.foldAttrs, this function is just a builtins.fold' but attrs
+  foldAttrs = fn: init: target:
+    foldl' (acc: x: fn acc target.${x}) init (attrNames target);
+
+  # foldAttrs' :: (Any -> Any -> Any) -> Any -> AttrSet -> Any
+  # ffoldAttrs with key value
+  foldAttrs' = fn: init: target:
+    foldl' (acc: x: fn acc x target.${x}) init (attrNames target);
   # match :: [String] -> String -> [Null | String] | Null
   # builtins.match but support list
   match  = matches: str: (match' matches str).data;

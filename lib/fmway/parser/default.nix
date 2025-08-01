@@ -11,6 +11,7 @@
     addIndent
     match'
     flat
+    fixedInMatch
   ;
 
   inherit (builtins)
@@ -18,11 +19,6 @@
     fromJSON
     fromTOML
   ;
-  # FIXME
-  listNeedFixed = [ "$" "{" "}" "." "(" ")" "[" "|" ];
-
-  fixedInMatch = str:
-    lib.foldl' (acc: curr: acc + (if lib.any (x: curr == x) listNeedFixed then "[${curr}]" else curr)) "" (lib.splitString "" str);
 
   # for handle ctx multiple postfix
   getCtx = str: postfix: let
