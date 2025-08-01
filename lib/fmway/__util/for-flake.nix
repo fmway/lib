@@ -2,6 +2,7 @@
   inherit (self'.fmway)
     toCamelCase
     withImport'
+    treeImport
   ;
 in {
   genModules' = shareds: moduleDir: args: let
@@ -21,25 +22,39 @@ in {
               (! isNull (builtins.match ".+[.]nix" name) && type == "regular") ||
               (
                 type == "directory" &&
-                lib.pathIsRegularFile "${modulesPath}/${dir}/${name}/default.nix"
+                (
+                  lib.hasSuffix "-" name ||
+                  lib.pathIsRegularFile "${modulesPath}/${dir}/${name}/default.nix"
+                )
               )
             ))
             (lib.attrNames)
             (map (name: let
-              _file = let
-                path = /. + "${modulesPath}/${dir}/${name}";
-              in path + lib.optionalString (lib.pathIsDirectory path) "/default.nix";
-              module = lib.removeSuffix ".nix" name;
+              path = /. + "${modulesPath}/${dir}/${name}";
+              isDirectory = lib.pathIsDirectory path;
+              _file = path + lib.optionalString isDirectory "/default.nix";
+              isTree = isDirectory && lib.hasSuffix "-" path;
+              module =
+                let
+                  r = lib.removeSuffix ".nix" name;
+                  rr= lib.removeSuffix "-" name;
+                in if isTree then rr else if !isDirectory then r else name;
             in {
               name = module;
               value = let
-                r = exc: withImport' _file (lib.optionalAttrs (scope != "SharedModules") {
-                  allModules = map (x: final.${scope}.${x}) (
-                    lib.filter (x:
-                      x != module &&
-                      lib.all (y: x != y) (exc ++ [ "defaultWithout" "default" "all" "allWithout" ])
-                    ) (lib.attrNames final.${scope}));
-                } // { inherit _file; } // args);
+                r = exc: let
+                  args' = lib.optionalAttrs (scope != "SharedModules") {
+                    allModules = map (x: final.${scope}.${x}) (
+                      lib.filter (x:
+                        x != module &&
+                        lib.all (y: x != y) (exc ++ [ "defaultWithout" "default" "all" "allWithout" ])
+                      ) (lib.attrNames final.${scope}));
+                  } // { inherit _file; } // args;
+                in if isTree then { config, pkgs ? {}, lib, osConfig ? {}, specialArgs ? {}, ... } @ v: treeImport { _file = path; } {
+                  folder = path;
+                  depth = 0;
+                  variables = args' // v // specialArgs;
+                } else withImport' _file args';
               in if module == "default" then r else r [];
             }))
             (lib.listToAttrs)
