@@ -6,7 +6,7 @@
    /top-level => auto-imports for flake modules
    /...
  */
-{ inputs, src ? null, ... } @ v1: let
+{ inputs, src ? null, infuseLib ? false, ... } @ v1: let
   inherit (inputs) flake-parts;
   inherit (inputs.nixpkgs) lib;
   fixSrc = builtins.toPath src;
@@ -27,13 +27,21 @@
       flake-parts = flake-parts.lib;
     }
   ] ++ lib.optionals (!isNull src && lib.pathIsDirectory (/. + "${fixSrc}/lib")) [
-    (self: super: self'.fmway.treeImport {
-      folder = (/. + "${fixSrc}/lib");
-      depth = 0;
-      variables = { lib = self; inherit self super; };
-    })
+    (self: super: let
+      res = self'.fmway.treeImport {
+        folder = (/. + "${fixSrc}/lib");
+        depth = 0;
+        variables = { lib = self; inherit self super; };
+      };
+      fn =
+        if lib.isBool infuseLib && infuseLib then
+          self'.infuse
+        else if lib.isAttrs infuseLib || lib.isList infuseLib then
+          self'.infuse.sugarify infuseLib
+        else _: x: x;
+    in fn super res)
   ] ++ self'.fmway.flat default;
-  arg1 = removeAttrs v1 [ "src" ] // {
+  arg1 = removeAttrs v1 [ "src" "infuseLib" ] // {
     specialArgs = (v1.specialArgs or {}) // {
       lib = overlay lib overlay-lib;
     };
