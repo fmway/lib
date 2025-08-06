@@ -7,5 +7,10 @@
   "infuse-nix": {
     "url": "https://codeberg.org/amjoseph/infuse.nix/archive/trunk.tar.gz",
     "sha256": "sha256-N+u3vnK3zyXLUuDj/vr62r9tM7uarhKVCaLHWxjo/YY="
+  },
+  "kdl": {
+    "url": "https://raw.githubusercontent.com/sodiboo/niri-flake/refs/heads/main/kdl.nix",
+    "type": "file",
+    "sha256": "sha256-JjUzGmxlvI4qyEPukp48CktelHZWJPkjJxzr4hILlxc="
   }
 }
