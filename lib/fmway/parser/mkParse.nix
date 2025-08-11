@@ -26,6 +26,7 @@
           if removeLetExpr then "" else curr.str
         else obj.${key};
     in {
+      # FIXME is it possible to make a frienldy error message?
       idx = if lib.isString curr || curr ? _key || curr ? _let then acc.idx else acc.idx + 1;
       _let= acc._let + lib.optionalString (curr ? _let) "${curr._let}\n";
       ctx = acc.ctx + lib.optionalString (curr ? _expr) (addIndent "  " "${key} = ${curr._expr};\n");
@@ -73,21 +74,35 @@
       };
     in parse "this is \${{ myvar }} and \${{ the.value.is }}" # => "this is work and work"
     ```
- */
-  mkParse = { debug ? false, transform ? (x: x), removeLetExpr ? true, importer ? (path: import path variables), ... } @ variables: let
+  */
+  mkParse = { debug ? false, transform ? (x: x), removeLetExpr ? true, importer ? (path: import path variables), customs ? [], ... } @ variables: let
     prefix = flat (variables.prefix or "{{");
     postfix= flat (variables.postfix or "}}");
+    fixedPrefix = map fixedInMatch prefix;
+    fixedPostfix= map fixedInMatch postfix;
   in lib.throwIfNot (lib.length prefix == lib.length postfix) "both prefix and postfix doesn't match"
   (str: let
     fn = res: s: 
       if s == "" then
         res
       else let
-        matches = getMatch prefix postfix (prefix: postfix: let
-          fixedPrefix = fixedInMatch prefix;
-          fixedPostfix= fixedInMatch postfix;
-        in "^(.*)${fixedPrefix}(.+)${fixedPostfix}(.*)$") s;
-      in if ! matches.isMatch then
+        matches = getMatch fixedPrefix fixedPostfix (pre: post:
+          "^(.*)${pre}(.+)${post}(.*)$") s;
+        customify = builtins.foldl' (r: f:
+          if r.ok then
+            r
+          else
+            builtins.foldl' (a: c:
+              if a.ok then
+                a
+              else
+                a // f s (builtins.elemAt fixedPrefix c) (builtins.elemAt fixedPostfix c)
+            ) r (lib.genList (x: x) (lib.length prefix))) { ok = false; pre = ""; post = ""; data = null; } customs;
+      in if customs != [] && customify.ok then
+        lib.optionals (customify.pre != "") (fn [] customify.pre)
+        ++res ++ [customify.data]
+        ++lib.optionals (customify.post != "") (fn [] customify.post)
+      else if ! matches.isMatch then
         fn (res ++ [s]) ""
       else let
         pre = lib.elemAt matches.data 0;

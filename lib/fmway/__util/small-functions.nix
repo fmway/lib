@@ -101,6 +101,14 @@ in {
   addIndent = addIndent true;
   addIndent'= addIndent false;
 } // rec {
+  toString = x:
+    if isNull x then
+      "null"
+    else if builtins.isString x then
+      x
+    else if builtins.isBool x then
+      if x then "true" else "false"
+    else builtins.toString x;
   elem = fn: arrs:
     foldl' (acc: curr: if fn curr then curr else acc) null arrs;
 
