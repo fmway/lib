@@ -31,7 +31,7 @@
       res = self'.fmway.treeImport {
         folder = (/. + "${fixSrc}/lib");
         depth = 0;
-        variables = { lib = self; inherit self super; };
+        variables = specialArgs // { inherit self super; };
       };
       fn =
         if lib.isBool infuseLib && infuseLib then
@@ -41,10 +41,11 @@
         else _: x: x;
     in fn super res)
   ] ++ self'.fmway.flat default;
+  specialArgs = (v1.specialArgs or {}) // {
+    lib = overlay lib overlay-lib;
+  };
   arg1 = removeAttrs v1 [ "src" "infuseLib" ] // {
-    specialArgs = (v1.specialArgs or {}) // {
-      lib = overlay lib overlay-lib;
-    };
+    inherit specialArgs;
   };
   top-levels =
     self'.fmway.genImports (/. + "${fixSrc}/top-level")
