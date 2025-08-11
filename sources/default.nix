@@ -7,8 +7,12 @@ let
     else if type == "tarball" then
       fetchTarball
     else throw "undefined";
-  in fn {
-    name = v.name or "source";
-    inherit (v) url sha256;
-  }) sources;
+    source = fn {
+      name = v.name or "source";
+      inherit (v) url sha256;
+    };
+  in if v.flake or false then
+    getFlake (builtins.toPath source)
+  else source) sources;
+  getFlake = src: (import res.flake-compat { inherit src; }).outputs;
 in res

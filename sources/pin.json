@@ -12,5 +12,13 @@
     "url": "https://raw.githubusercontent.com/sodiboo/niri-flake/refs/heads/main/kdl.nix",
     "type": "file",
     "sha256": "sha256-JjUzGmxlvI4qyEPukp48CktelHZWJPkjJxzr4hILlxc="
+  },
+  "nix-parsec": {
+    "url": "https://github.com/milahu/nix-parsec/archive/refs/heads/master.zip",
+    "sha256": "sha256-I6ZODAu2aSVr8xiBVewefQQL12wOrTGnLKhX3GFFCwM="
+  },
+  "flake-compat": {
+    "url": "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz",
+    "sha256": "sha256-NeCCThCEP3eCl2l/+27kNNK7QrwZB1IJCrXfrbv5oqU="
   }
 }
