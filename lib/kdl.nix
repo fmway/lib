@@ -9,6 +9,7 @@
         };
     ''
     "leaf = name: args: node name args [ ];"
+    "flag = name: node name [ ] [ ];"
     ''
       serialize.node-with =
           indent:
@@ -41,16 +42,17 @@
     ''
     # nix
     ''
-      leaf = name: args: node name args [ ] // rec {
+      leaf = name: plain name // {
           __functor = self: args: let
             r = fold-args (lib.toList args);
           in self // {
-            inherit __functor;
             arguments = self.arguments ++ r.arguments;
             properties = self.properties // r.properties;
           };
         };
     ''
+    # nix
+    ''flag = name: removeAttrs (plain name) [ "__functor" "assign" "merge" ];''
     # nix
     ''
       serialize.node-with =
