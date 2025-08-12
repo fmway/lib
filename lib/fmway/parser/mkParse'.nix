@@ -44,7 +44,7 @@ in { ... } @ arg: mkParse (arg // {
     # {% end %}
     (str: prefix: postfix: let
       # FIXME add if else support
-      matched = builtins.match "^(.*)(${prefix}%([^\n]+)%${postfix})(.*)\n(${prefix}%[ ]*end[ ]*%${postfix})(.*)$" str;
+      matched = builtins.match "^(.*)(${prefix}%([^\n]+)%${postfix}[^\n]*)\n(.*)\n(${prefix}%[ ]*end[ ]*%${postfix})(.*)$" str;
     in if isNull matched then { ok = false; } else let
       macro  = builtins.elemAt matched 2;
       context= builtins.elemAt matched 3;
@@ -160,7 +160,7 @@ in { ... } @ arg: mkParse (arg // {
       found = builtins.elemAt matched 1;
       rest = builtins.elemAt matched 0;
       context = from;
-      replaced = toString to;
+      replaced = builtins.replaceStrings (builtins.genList (x: "$" + toString x) (lib.length matched - 1)) (lib.tail matched) (toString to);
       __toString = self: if ! self.isFound then self.context else builtins.replaceStrings [ self.found ] [ self.replaced ] self.context;
     };
     rr = replace_re;

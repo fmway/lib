@@ -26,7 +26,7 @@ woy
 
 Home Manager (25.05) <!--{< replace_ver (toString version) >}-->
 
-<!--{% (x: "hmm") %}-->
+<!--{% replace_re "^.+$" "the $0" %}-->
 xxx
 <!--{% end %}-->
 
