@@ -43,7 +43,7 @@
             in if isTree then { config, pkgs ? {}, lib, osConfig ? {}, specialArgs ? {}, ... } @ v: treeImport { _file = path; } {
               folder = path;
               depth = 0;
-              variables = args' // v // specialArgs;
+              variables = args' // v // specialArgs // { inherit config pkgs lib osConfig; superLib = args'.lib or {}; };
             } else withImport' _file args';
           in if module == "default" then r else r [];
         }) filterModule);
