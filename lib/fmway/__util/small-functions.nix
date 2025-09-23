@@ -95,6 +95,22 @@
       data = acc.data ++ lib.optionals (isString curr || (builtins.isBool curr && curr)) [m];
       idx = acc.idx + 1;
     }) { groups = {}; data = []; idx = 0; } parseMatch.data) [ "idx" ];
+
+  transformerString = name: re: fn: let
+    result = x: let
+      m = builtins.match re x;
+      r = lib.concatStrings (imap1 fn m);
+    in if isString x then
+      if isNull m then
+        x
+      else result r
+    else if isAttrs x then
+      lib.mapAttrs' (k: v: let
+        key = result k;
+        value = if lib.isAttrs v then result v else v;
+      in lib.nameValuePair key value) x
+    else throw "(${name}): unknown x, allowed string or attrs, found ${builtins.typeOf x}";
+  in result;
 in {
   inherit match2;
   inherit removeSuffix removePrefix hasPrefix hasSuffix replaceStrings fixedInMatch;
@@ -332,14 +348,29 @@ in {
     ++ lib.optionals (config ? home-manager && config.home-manager.users ? ${user}) config.home-manager.users.${user}.home.packages # home-manager packages
     );
 
-  toCamelCase = str: let
-    match = builtins.match "^(.*)[-_](.)(.*)$" str;
-    cameled = imap1 (i: v: if i == 2 then
-      lib.toUpper v
-    else v) match;
-  in if isNull match then
-    str
-  else toCamelCase (lib.concatStrings cameled);
+    camelize =
+      transformerString "camelize" # regex
+      "^(.*)[-_ ]([^-_ ])(.*)$" # FIXME
+      (i: v:
+        if i == 2 then
+          lib.toUpper v
+        else v);
+
+    kebabize =
+      transformerString "kebabize" # regex
+      "^(.*)([A-Z_ ])([^A-Z_ ]+)(.*)$" # FIXME
+      (i: v:
+        if i == 2 then
+          "-" + lib.optionalString (v != "_" && v != " ") (lib.toLower v)
+        else v);
+
+    snakeize =
+      transformerString "snakeize" # regex
+      "^(.*)([-A-Z ])([^-A-Z ]+)(.*)$" # FIXME
+      (i: v:
+        if i == 2 then
+          "_" + lib.optionalString (v != "-" && v != " ") (lib.toLower v)
+        else v);
 
   /*
     mkResolvePath :: (String | Path) -> String -> (Path | String)

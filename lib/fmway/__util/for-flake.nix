@@ -4,7 +4,7 @@
     modulesPath = builtins.toPath moduleDir;
     listDir = attrNames (filterAttrs (_: v: v == "directory") (builtins.readDir modulesPath));
     re = listToAttrs (map (x: let
-      scope = "${toCamelCase x}Modules";
+      scope = "${camelize x}Modules";
       dir = "${modulesPath}/${x}";
     in {
       name = scope;
@@ -84,7 +84,7 @@
   ;
   
   inherit (self'.fmway)
-    toCamelCase
+    camelize
     withImport'
     treeImport
   ;
