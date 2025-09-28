@@ -99,4 +99,5 @@ in r // {
   shorts = {
     f = r.flag; l = r.leaf; l' = r.magic-leaf; n = r.node; p = r.plain; s = r.serialize;
   };
+  _source = patched;
 }
