@@ -37,7 +37,7 @@
                 allModules = map (x: final.${scope}.${x}) (
                   filter (x:
                     x != module &&
-                    all (y: x != y) (exc ++ [ "defaultWithout" "default" "all" "allWithout" ])
+                    all (y: x != y) (exc ++ [ "defaultWithout" "default" "all" "without" "within" ])
                   ) (attrNames final.${scope}));
               } // { inherit _file; } // args;
             in if isTree then { config, pkgs ? {}, lib, osConfig ? {}, specialArgs ? {}, ... } @ v: treeImport { _file = path; } {
@@ -58,8 +58,9 @@
     final = let
       r = removeAttrs re [ "SharedModules" ] // optionalAttrs (re ? SharedModules) gen;
     in mapAttrs (k: v: v // {
-      allWithout = exc: { imports = map (x: final.${k}.${x}) (filter (x: all (y: x != y) exc) (attrNames v)); };
-      all = final.${k}.allWithout [];
+      all = final.${k}.without [];
+      without = exc: { imports = map (x: final.${k}.${x}) (filter (x: all (y: x != y) exc) (attrNames v)); };
+      within = inc: { imports = map (x: final.${k}.${x}) inc; };
     } // optionalAttrs (v ? default) {
       defaultWithout = v.default;
       default = final.${k}.defaultWithout [];
