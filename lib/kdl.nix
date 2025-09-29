@@ -42,14 +42,15 @@
     ''
     # nix
     ''
-      leaf = name: plain name // {
+      leaf = name: let res = removeAttrs (plain name) [ "merge" ] // {
+          assign = args: res args // { _do = "assign"; };
           __functor = self: args: let
             r = fold-args (lib.toList args);
           in self // {
             arguments = self.arguments ++ r.arguments;
             properties = self.properties // r.properties;
           };
-        };
+        }; in res;
     ''
     # nix
     ''flag = name: removeAttrs (plain name) [ "__functor" "assign" "merge" ];''
@@ -75,8 +76,10 @@
               if ! curr ? _do then
                 acc ++ [curr]
               else let
-                res = builtins.foldl' (a: c:
-                  a // (if c.name == curr.name && c.arguments == curr.arguments then
+                res = builtins.foldl' (a: c: let
+                  is_assign = curr._do == "assign";
+                  is_leaf   = c.children == [] && builtins.length c.arguments == 1;
+                in a // (if c.name == curr.name && ((!is_assign && !is_leaf && c.arguments == curr.arguments) || is_assign && is_leaf) then
                   lib.throwIf a.is_found "found duplicated nodes ''${curr.name}, i can't do ''${curr._do} twice" {
                     is_found = true;
                     data = let
