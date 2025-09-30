@@ -74,6 +74,18 @@
     };
   in final;
 
+  genModules = {
+    _specialKeywords = [ "defaultWithout" "defaultWithin" "all" "within" "without" ];
+    sharedModules = [ "nixosModules" "nixDarwinModules" "homeManagerModules" ];
+    __functor = self: args: if isList args then self // {
+      sharedModules = args;
+    } else if (isString args || isPath args) && pathIsDirectory args then self // {
+      dir = args;
+    } else if isAttrs args then
+      genModules' self.sharedModules self.dir args
+    else throw "(genModules): unknown type ${builtins.typeOf args}";
+  };
+
   inherit (lib)
     mapAttrs
     all
@@ -87,14 +99,20 @@
     filterAttrs
     pathIsRegularFile
     pathIsDirectory
+    pathExists
+    isString
+    isAttrs
+    isList
+    isPath
   ;
   
   inherit (self'.fmway)
     camelize
     withImport'
     treeImport
+    flat
   ;
 in {
-  inherit genModules';
-  genModules = genModules' [ "nixosModules" "nixDarwinModules" "homeManagerModules" ];
+  genModules' = lib.warn "genModules' deprecated, use genModules instead" genModules';
+  inherit genModules;
 }

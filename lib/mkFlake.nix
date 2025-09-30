@@ -83,7 +83,7 @@ in lib.throwIf (!isNull src && !lib.pathIsDirectory src) "src must be a director
           };
           default = list;
         };
-        list = lib.filter (x: lib.all (y: x != y) [ "defaultWithout" "defaultWithin" "all" "within" "without" ]) (lib.attrNames v);
+        list = lib.filter (x: lib.all (y: x != y) self'.fmway.genModules._specialKeywords) (lib.attrNames v);
       in lib.nameValuePair name value) modules;
       config.flake = lib.mapAttrs (scope: u: lib.mapAttrs (module: v: let
         x = self'.fmway.snakeize (lib.removeSuffix "Modules" scope);
