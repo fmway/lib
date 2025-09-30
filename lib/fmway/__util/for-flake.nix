@@ -32,20 +32,17 @@
         in {
           name = module;
           value = let
-            r = exc: let
-              args' = optionalAttrs (scope != "SharedModules") {
-                allModules = map (x: final.${scope}.${x}) (
-                  filter (x:
-                    x != module &&
-                    all (y: x != y) (exc ++ [ "defaultWithout" "default" "all" "without" "within" ])
-                  ) (attrNames final.${scope}));
+            r = withAllModules: inc: dontEmptyAllModules: let
+              allModules = map (x: final.${scope}.${x}) (filter (x: x != module) inc);
+              args' = optionalAttrs (scope != "SharedModules" && withAllModules) {
+                allModules = lib.optionals dontEmptyAllModules allModules; 
               } // { inherit _file; } // args;
             in if isTree then { config, pkgs ? {}, lib, osConfig ? {}, specialArgs ? {}, ... } @ v: treeImport { _file = path; } {
               folder = path;
               depth = 0;
               variables = args' // v // specialArgs // { inherit config pkgs lib osConfig; superLib = args'.lib or {}; };
             } else withImport' _file args';
-          in if module == "default" then r else r [];
+          in if module == "default" then r true else r false [] false;
         }) filterModule);
       in if scope == "SharedModules" then
         res
@@ -57,13 +54,21 @@
     }) shareds);
     final = let
       r = removeAttrs re [ "SharedModules" ] // optionalAttrs (re ? SharedModules) gen;
-    in mapAttrs (k: v: v // {
+    in mapAttrs (k: v: let
+      moduleDefault = v.default (attrNames (removeAttrs v [ "default" ]));
+      allModules = attrNames v;
+      getModule = x: if x == "default" then
+        moduleDefault false
+      else final.${k}.${x};
+      filterExc = exc: filter (x: all (y: x != y) exc) allModules;
+    in v // {
       all = final.${k}.without [];
-      without = exc: { imports = map (x: final.${k}.${x}) (filter (x: all (y: x != y) exc) (attrNames v)); };
-      within = inc: { imports = map (x: final.${k}.${x}) inc; };
+      without = exc: { imports = map getModule (filterExc exc); };
+      within = inc: { imports = map getModule inc; };
     } // optionalAttrs (v ? default) {
-      defaultWithout = v.default;
-      default = final.${k}.defaultWithout [];
+      defaultWithin = lib.flip v.default true;
+      defaultWithout  = exc: final.${k}.defaultWithin (filterExc exc);
+      default = moduleDefault true;
     }) r // {
       inherit modulesPath;
     };
