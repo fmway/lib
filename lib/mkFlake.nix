@@ -73,23 +73,36 @@ in lib.throwIf (!isNull src && !lib.pathIsDirectory src) "src must be a director
     ++ lib.optionals (!isNull src && lib.pathIsDirectory "${fixSrc}/modules") [
     ({ self, config, lib, ... } @ v: let
       modules = self'.fmway.genModules "${fixSrc}/modules" v;
-      cfg = config.exports;
-    in {
-      options.exports = lib.mapAttrs' (k: v: let
-        name = self'.fmway.snakeize (lib.removeSuffix "Modules" k);
-        value = lib.mkOption {
-          type = let t = with lib.types; listOf (enum list); in t // {
-            merge = loc: defs: lib.unique (t.merge loc defs);
+    in self'.fmway.foldAttrs' (acc: k: v: let
+      k' = self'.fmway.kebabize (lib.removeSuffix "Modules" k);
+      list = lib.filter (x: lib.all (y: x != y) self'.fmway.genModules._specialKeywords) (lib.attrNames v);
+      filtered = lib.filter (x: ! builtins.elem x config.excludes.${k'}) config.exports.${k'};
+      defaultModule = v.defaultWithin filtered;
+    in acc // {
+      options = acc.options // {
+        exports = acc.options.exports // {
+          "${k'}" = lib.mkOption {
+            type = let t = with lib.types; listOf (enum list); in t // {
+              merge = loc: defs: lib.unique (t.merge loc defs);
+            };
+            default = list;
           };
-          default = list;
         };
-        list = lib.filter (x: lib.all (y: x != y) self'.fmway.genModules._specialKeywords) (lib.attrNames v);
-      in lib.nameValuePair name value) modules;
-      config.flake = lib.mapAttrs (scope: u: lib.mapAttrs (module: v: let
-        x = self'.fmway.snakeize (lib.removeSuffix "Modules" scope);
-      in if module == "default" then u.defaultWithin cfg.${x} else v
-      ) u) modules;
-    })
+        excludes = acc.options.excludes // {
+          "${k'}" = lib.mkOption {
+            type = let t = with lib.types; listOf (enum config.exports.${k'}); in t // {
+              merge = loc: defs: lib.unique (t.merge loc defs);
+            };
+            default = [];
+          };
+        };
+      };
+      config.flake = acc.config.flake // {
+        "${k}" = lib.mapAttrs (module: v':
+          if module == "default" then defaultModule else v'
+        ) v;
+      };
+    }) { options = { excludes = {}; exports = {}; }; config.flake = {}; } modules)
   ] ++ [
     {
       perSystem = { pkgs, lib, ... }: {
