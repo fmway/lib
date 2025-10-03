@@ -44,7 +44,7 @@
     # nix
     ''
       leaf = name: let res = removeAttrs (plain name) [ "append" "prepend" ] // {
-          assign = lib.mkFn "assign" res;
+          assign = args: res args // { _do = "assign"; };
           __functor = self: args: let
             r = fold-args (lib.toList args);
           in self // {
