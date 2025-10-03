@@ -32,8 +32,9 @@
       node = name: args: let res = {
           children = [];
           inherit name;
-          merge = args: if lib.isAttrs args then res args // { _do = "merge"; } else x: res.merge x // { _has = args; };
-          assign = args: if lib.isAttrs args then res args // { _do = "assign"; } else x: res.assign x // { _has = args; };
+          append = lib.mkFn "append" res;
+          prepend= lib.mkFn "prepend" res;
+          assign = lib.mkFn "assign" res;
           inherit (fold-args (lib.toList args)) arguments properties;
           __functor = self: args: removeAttrs self [ "merge" "assign" ] // {
             children = self.children ++ (if builtins.isList args then args else [args]);
@@ -42,8 +43,8 @@
     ''
     # nix
     ''
-      leaf = name: let res = removeAttrs (plain name) [ "merge" ] // {
-          assign = args: res args // { _do = "assign"; };
+      leaf = name: let res = removeAttrs (plain name) [ "append" "prepend" ] // {
+          assign = lib.mkFn "assign" res;
           __functor = self: args: let
             r = fold-args (lib.toList args);
           in self // {
@@ -53,7 +54,7 @@
         }; in res;
     ''
     # nix
-    ''flag = name: removeAttrs (plain name) [ "__functor" "assign" "merge" ];''
+    ''flag = name: removeAttrs (plain name) [ "__functor" "assign" "append" "prepend" ];''
     # nix
     ''
       serialize.node-with =
@@ -73,6 +74,9 @@
           lib.flip lib.pipe [
             # FIXME too complicated
             (builtins.foldl' (acc: curr: let
+              is.assign = curr._do == "assign";
+              is.append = curr._do == "append";
+              is.prepend= curr._do == "prepend";
               found_me = c: if ! curr ? _has then true else let
                 x = lib.kdl.normalize c;
               in curr._has (c // {
@@ -83,19 +87,18 @@
                 acc ++ [curr]
               else let
                 res = builtins.foldl' (a: c: let
-                  is_assign = curr._do == "assign";
                   is_leaf   = c.children == [] && builtins.length c.arguments == 1;
                   is_found  = found_me c;
-                in a // (if is_found && c.name == curr.name && ((!is_assign && !is_leaf && c.arguments == curr.arguments) || is_assign && is_leaf) then
+                in a // (if is_found && c.name == curr.name && ((!is.assign && !is_leaf && c.arguments == curr.arguments) || is.assign && is_leaf) then
                   lib.throwIf (is_found && a.is_found) "found duplicated nodes ''${curr.name}, i can't do ''${curr._do} twice" {
                     is_found = true;
                     data = let
-                      r = if curr._do == "merge" then
+                      r = if is.append || is.prepend then
                         c // {
-                          children = c.children ++ curr.children;
-                          properties = c.properties // curr.properties;
+                          children = lib.optionals is.prepend curr.children ++ c.children ++ lib.optionals is.append curr.children;
+                          properties = lib.optionalAttrs is.prepend curr.properties // c.properties // lib.optionalAttrs is.append curr.properties;
                         }
-                      else if curr._do == "assign" then curr
+                      else if is.assign then curr
                       else throw "(kdl:serialize): i don't know what do you mean with ''${curr._do}";
                     in a.data ++ [r];
                   } else { data = a.data ++ [c]; })
@@ -104,7 +107,10 @@
             ) [])
     ''
   ] (builtins.readFile sources.kdl));
-  r = import patched { lib = lib.extend (_: _: { inherit kdl; }); };
+  r = import patched { lib = lib.extend (_: _: {
+    inherit kdl;
+    mkFn = name: res: args: if lib.isAttrs args then res args // { _do = name; } else x: res.${name} x // { _has = args; };
+  }); };
   kdl = r // {
     shorts = {
       f = r.flag; l = r.leaf; l' = r.magic-leaf; n = r.node; p = r.plain; s = r.serialize;
