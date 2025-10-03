@@ -32,8 +32,8 @@
       node = name: args: let res = {
           children = [];
           inherit name;
-          merge = args: res args // { _do = "merge"; };
-          assign = args: res args // { _do = "assign"; };
+          merge = args: if lib.isAttrs args then res args // { _do = "merge"; } else x: res.merge x // { _has = args; };
+          assign = args: if lib.isAttrs args then res args // { _do = "assign"; } else x: res.assign x // { _has = args; };
           inherit (fold-args (lib.toList args)) arguments properties;
           __functor = self: args: removeAttrs self [ "merge" "assign" ] // {
             children = self.children ++ (if builtins.isList args then args else [args]);
@@ -72,15 +72,22 @@
           indent:
           lib.flip lib.pipe [
             # FIXME too complicated
-            (builtins.foldl' (acc: curr:
-              if ! curr ? _do then
+            (builtins.foldl' (acc: curr: let
+              found_me = c: if ! curr ? _has then true else let
+                x = lib.kdl.normalize c;
+              in curr._has (c // {
+                is = y': let y = lib.kdl.normalize y'; in x == y;
+                has = y': let y = lib.kdl.normalize y'; in builtins.any (z: y == z) x.children;
+              });
+            in if ! curr ? _do then
                 acc ++ [curr]
               else let
                 res = builtins.foldl' (a: c: let
                   is_assign = curr._do == "assign";
                   is_leaf   = c.children == [] && builtins.length c.arguments == 1;
-                in a // (if c.name == curr.name && ((!is_assign && !is_leaf && c.arguments == curr.arguments) || is_assign && is_leaf) then
-                  lib.throwIf a.is_found "found duplicated nodes ''${curr.name}, i can't do ''${curr._do} twice" {
+                  is_found  = found_me c;
+                in a // (if is_found && c.name == curr.name && ((!is_assign && !is_leaf && c.arguments == curr.arguments) || is_assign && is_leaf) then
+                  lib.throwIf (is_found && a.is_found) "found duplicated nodes ''${curr.name}, i can't do ''${curr._do} twice" {
                     is_found = true;
                     data = let
                       r = if curr._do == "merge" then
@@ -97,10 +104,12 @@
             ) [])
     ''
   ] (builtins.readFile sources.kdl));
-  r = import patched { inherit lib; };
-in r // {
-  shorts = {
-    f = r.flag; l = r.leaf; l' = r.magic-leaf; n = r.node; p = r.plain; s = r.serialize;
+  r = import patched { lib = lib.extend (_: _: { inherit kdl; }); };
+  kdl = r // {
+    shorts = {
+      f = r.flag; l = r.leaf; l' = r.magic-leaf; n = r.node; p = r.plain; s = r.serialize;
+    };
+    normalize = x: lib.mapAttrs (k: v: if k != "children" then v else map kdl.normalize v) (removeAttrs x [ "__functor" "_do" "_has" "assign" "merge" ]);
+    _source = patched;
   };
-  _source = patched;
-}
+in kdl
