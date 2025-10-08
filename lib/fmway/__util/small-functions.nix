@@ -111,11 +111,29 @@
       in lib.nameValuePair key value) x
     else throw "(${name}): unknown x, allowed string or attrs, found ${builtins.typeOf x}";
   in result;
+
+  isFunction = x: x ? __functor || builtins.isFunction x;
+
+  listToFunction' = loose: fns: let
+    f = if loose then isFunction else builtins.isFunction;
+    allFunc = builtins.all f fns;
+  in if allFunc then x: listToFunction' loose (map (fn: fn x) fns) else fns;
 in {
   inherit match2;
   inherit removeSuffix removePrefix hasPrefix hasSuffix replaceStrings fixedInMatch;
   addIndent = addIndent true;
   addIndent'= addIndent false;
+
+  # listToFunction :: [Function] -> Any -> ...
+  # listToFunction, a function to make list of functions that behaves like a function
+  # e.g:
+  # fn = listToFunction (map (x: y: z: x + y)) [ 1 2 3 ]
+  # fn 5 1 # => [ 7 8 9 ]
+  listToFunction = listToFunction' false;
+
+  # listToFunction' :: [FunctionLike] -> Any
+  # like listToFunction but support __functor detection
+  listToFunction'= listToFunction' true;
 } // rec {
   toString = x:
     if isNull x then
