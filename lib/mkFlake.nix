@@ -26,7 +26,7 @@
     {
       flake-parts = flake-parts.lib;
     }
-  ] ++ lib.optionals (!isNull src && lib.pathIsDirectory (/. + "${fixSrc}/lib")) [
+  ] ++ self'.fmway.flat default ++ lib.optionals (!isNull src && lib.pathIsDirectory (/. + "${fixSrc}/lib")) [
     (self: super: let
       res = self'.fmway.treeImport {
         folder = (/. + "${fixSrc}/lib");
@@ -40,7 +40,7 @@
           self'.infuse.sugarify infuseLib
         else _: x: x;
     in fn super res)
-  ] ++ self'.fmway.flat default;
+  ];
   specialArgs = (v1.specialArgs or {}) // {
     lib = overlay lib overlay-lib;
   };
