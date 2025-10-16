@@ -6,7 +6,7 @@
    /top-level => auto-imports for flake modules
    /...
  */
-{ inputs, src ? null, infuseLib ? false, ... } @ v1: let
+{ inputs, src ? null, sharedModules ? null, infuseLib ? false, ... } @ v1: let
   inherit (inputs) flake-parts;
   inherit (inputs.nixpkgs) lib;
   fixSrc = builtins.toPath src;
@@ -44,7 +44,7 @@
   specialArgs = (v1.specialArgs or {}) // {
     lib = overlay lib overlay-lib;
   };
-  arg1 = removeAttrs v1 [ "src" "infuseLib" ] // {
+  arg1 = removeAttrs v1 [ "src" "infuseLib" "sharedModules" ] // {
     inherit specialArgs;
   };
   top-levels =
@@ -72,7 +72,7 @@ in lib.throwIf (!isNull src && !lib.pathIsDirectory src) "src must be a director
   ] ++ lib.optionals (!isNull src && lib.pathIsDirectory "${fixSrc}/top-level") top-levels
     ++ lib.optionals (!isNull src && lib.pathIsDirectory "${fixSrc}/modules") [
     ({ self, config, lib, ... } @ v: let
-      modules = self'.fmway.genModules "${fixSrc}/modules" v;
+      modules = (x: if !isNull sharedModules then x sharedModules else x) self'.fmway.genModules "${fixSrc}/modules" v;
     in self'.fmway.foldAttrs' (acc: k: v: let
       k' = self'.fmway.kebabize (lib.removeSuffix "Modules" k);
       list = lib.filter (x: lib.all (y: x != y) self'.fmway.genModules._specialKeywords) (lib.attrNames v);
