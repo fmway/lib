@@ -9,7 +9,20 @@
     };
   in infuse // {
     __functor = self: self.v1.infuse;
+    assignable = template "__assign";
+    initable   = template "__init";
+    defaultable= template "__default";
   };
+
+  template = method: val:
+    if lib.isDerivation val || !lib.isAttrs val then {
+      "${method}" = val;
+    } else lib.mapAttrs (k: v:
+      if k == method then
+        v
+      else
+        template method v
+    ) val;
 
 # FIXME recursive sugarify
 in sugarify {} // { inherit sugarify; }
