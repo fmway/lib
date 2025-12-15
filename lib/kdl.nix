@@ -87,9 +87,9 @@
                 acc ++ [curr]
               else let
                 res = builtins.foldl' (a: c: let
-                  is_leaf   = c.children == [] && builtins.length c.arguments == 1;
+                  is_leaf   = c.children == [] && (c.arguments != [] || c.properties != {});
                   is_found  = found_me c;
-                in a // (if is_found && c.name == curr.name && ((!is.assign && !is_leaf && c.arguments == curr.arguments) || is.assign && is_leaf) then
+                in a // (if is_found && c.name == curr.name && ((!is.assign && !is_leaf && c.arguments == curr.arguments) || is.assign) then
                   lib.throwIf (is_found && a.is_found) "found duplicated nodes ''${curr.name}, i can't do ''${curr._do} twice" {
                     is_found = true;
                     data = let
