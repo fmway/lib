@@ -111,7 +111,7 @@ in { ... } @ arg: mkParse (arg // {
     replace_ver = to: from: rec {
       isFound = !isNull matched;
       rest = builtins.elemAt matched 0;
-      matched = builtins.match "(.*)([[:digit:]]{2}[.][[:digit:]]{2}|[[:digit:]][.]+[[:digit:]]+[.][[:digit:]]+(-[^ ]+)?).*" from;
+      matched = builtins.match "(^|.* )([[:digit:]]+[.][[:digit:]]+[.][[:digit:]]+[^ ]*|[[:digit:]]+[.][[:digit:]]+).*" from;
       found = builtins.elemAt matched 1;
       replaced = to;
       context = from;
