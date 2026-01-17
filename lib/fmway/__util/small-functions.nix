@@ -118,9 +118,24 @@
     f = if loose then isFunction else builtins.isFunction;
     allFunc = builtins.all f fns;
   in if allFunc then x: listToFunction' loose (map (fn: fn x) fns) else fns;
+
+  stringification = x: let
+    type = builtins.typeOf x;
+    switch = rec {
+      null = "null";
+      bool = if x then "true" else "false";
+      float = toString x;
+      path = float;
+      int = float;
+      string = x;
+      list = map stringification x;
+      set = lib.mapAttrs (_: stringification) x;
+      lambda = "<function>";
+    };
+  in switch.${type};
 in {
   inherit match2;
-  inherit removeSuffix removePrefix hasPrefix hasSuffix replaceStrings fixedInMatch;
+  inherit removeSuffix removePrefix hasPrefix hasSuffix replaceStrings fixedInMatch stringification;
   addIndent = addIndent true;
   addIndent'= addIndent false;
 
