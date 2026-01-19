@@ -119,7 +119,7 @@
     allFunc = builtins.all f fns;
   in if allFunc then x: listToFunction' loose (map (fn: fn x) fns) else fns;
 
-  stringification = x: let
+  stringification = include-drv: x: let
     type = builtins.typeOf x;
     switch = rec {
       null = "null";
@@ -128,16 +128,18 @@
       path = float;
       int = float;
       string = x;
-      list = map stringification x;
-      set = lib.mapAttrs (_: stringification) x;
+      list = map (stringification include-drv) x;
+      set = if include-drv && lib.isDerivation x then float else lib.mapAttrs (_: stringification include-drv) x;
       lambda = "<function>";
     };
   in switch.${type};
 in {
   inherit match2;
-  inherit removeSuffix removePrefix hasPrefix hasSuffix replaceStrings fixedInMatch stringification;
+  inherit removeSuffix removePrefix hasPrefix hasSuffix replaceStrings fixedInMatch;
   addIndent = addIndent true;
   addIndent'= addIndent false;
+  stringification = stringification false;
+  stringification'= stringification true;
 
   # listToFunction :: [Function] -> Any -> ...
   # listToFunction, a function to make list of functions that behaves like a function
