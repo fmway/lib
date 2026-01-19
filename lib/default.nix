@@ -1,5 +1,5 @@
 { sources, lib, self', ... }: let
-  systems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+  defaultSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
 in {
   readTree = import sources.read-tree {};
   mapListToAttrs = fn: l: lib.listToAttrs (map fn l);
@@ -12,5 +12,15 @@ in {
       ${system} = v;
     };
   }) acc r) {} systems;
-  eachDefaultSystem = self'.eachSystem systems;
+  eachDefaultSystem = self'.eachSystem defaultSystems;
+  # minimal flake schema generator, without evalModules
+  mkFlake' = { systems ? defaultSystems, inputs, nixpkgs ? {}, flake ? {}, perSystem ? (x: {}), ... } @a: let
+    others = removeAttrs a [ "systems" "inputs" "flake" "perSystem" "nixpkgs" ];
+  in self'.eachSystem systems (system: let
+    inputs' = lib.mapAttrs (_: v: v.${system} or v) inputs;
+    args = { inherit system inputs inputs'; } // lib.optionalAttrs (inputs ? nixpkgs) rec {
+      pkgs = import inputs.nixpkgs { inherit system; config = nixpkgs; };
+      lib = pkgs.lib;
+    };
+  in perSystem args) // others // flake;
 }
