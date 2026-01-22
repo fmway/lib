@@ -5,22 +5,30 @@ in {
   mapListToAttrs = fn: l: lib.listToAttrs (map fn l);
   lexer  = import "${sources.nix-parsec}/lexer.nix" { parsec = self'.parsec; };
   parsec = import "${sources.nix-parsec}/parsec.nix";
-  eachSystem = systems: fn: builtins.foldl' (acc: system: let
-    r = fn system;
-  in self'.fmway.foldAttrs' (a: k: v: a // {
-    ${k} = a.${k} or {} // {
-      ${system} = v;
-    };
-  }) acc r) {} systems;
+  eachSystem = systems: fn: let
+    outputsParams = builtins.listToAttrs (map (system: {
+      name = system;
+      value = fn system;
+    }) systems);
+    
+    keys = builtins.attrNames (outputsParams.${builtins.head systems});
+  in builtins.listToAttrs (map (key: {
+    name = key;
+    value = builtins.listToAttrs (map (system: {
+      name = system;
+      value = outputsParams.${system}.${key};
+    }) systems);
+  }) keys);
   eachDefaultSystem = self'.eachSystem defaultSystems;
   # minimal flake schema generator, without evalModules
-  mkFlake' = { systems ? defaultSystems, inputs, nixpkgs ? {}, flake ? {}, perSystem ? (x: {}), ... } @a: let
-    others = removeAttrs a [ "systems" "inputs" "flake" "perSystem" "nixpkgs" ];
-  in self'.eachSystem systems (system: let
-    inputs' = lib.mapAttrs (_: v: v.${system} or v) inputs;
-    args = { inherit system inputs inputs'; } // lib.optionalAttrs (inputs ? nixpkgs) rec {
-      pkgs = import inputs.nixpkgs { inherit system; config = nixpkgs; };
-      lib = pkgs.lib;
-    };
-  in perSystem args) // others // flake;
+  mkFlake' = { systems ? defaultSystems, inputs, nixpkgs ? {}, flake ? {}, perSystem ? (x: {}), ... } @a:
+  self'.eachSystem systems (system: let
+    pkgs =
+      if inputs ? nixpkgs then
+        import inputs.nixpkgs (nixpkgs // { inherit system; })
+      else {};
+  in perSystem {
+    inherit system inputs pkgs;
+    lib = pkgs.lib or {};
+  }) // flake // removeAttrs a [ "systems" "inputs" "flake" "perSystem" "nixpkgs" ];
 }
