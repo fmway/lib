@@ -28,26 +28,29 @@ in final // {
   overlays.default = overlay;
 
   apps = lib.genAttrs [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ] (system: let
-    pkgs = import inputs.nixpkgs { inherit system; };
-    get-hash = pkgs.writeScript "get-hash.fish" ''
-      #!${lib.getExe pkgs.fish}
-
-      ${lib.fileContents ./scripts/get-hash.fish}
-    '';
-    fetch-sources = pkgs.writeScript "fetch-sources.nu" ''
-      #!${lib.getExe pkgs.nushell}
-      alias get-hash = ${get-hash}
-
-      ${lib.fileContents ./scripts/fetch-sources.nu}
-    '';
+    pkgs = import inputs.nixpkgs { inherit system; overlays = [ self.overlays.updater ]; };
   in {
     fetch-sources = {
       type = "app";
-      program = "${fetch-sources}";
+      program = "${pkgs.fetch-sources}/bin/fetch-sources";
     };
   });
   
   # wrap mkShell to handle lorri shellHook problems
+  overlays.updater = self: super: {
+    fetch-sources = let
+      get-hash = self.writeScript "get-hash.fish" ''
+        #!${lib.getExe self.fish}
+
+        ${lib.fileContents ./scripts/get-hash.fish}
+      '';
+    in self.writeScriptBin "fetch-sources" ''
+      #!${lib.getExe self.nushell}
+      alias get-hash = ${get-hash}
+
+      ${lib.fileContents ./scripts/fetch-sources.nu}
+    '';
+  };
   overlays.devshell-lorri-fix = self: super: {
     mkShell = rec {
       override = { ... } @ a: { shellHook ? "", ... } @ v: let

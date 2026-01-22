@@ -43,6 +43,8 @@
   ];
   specialArgs = (v1.specialArgs or {}) // {
     lib = overlay lib overlay-lib;
+  } // lib.optionalAttrs (!isNull src && builtins.pathExists "${fixSrc}/sources/pin.json") {
+    sources = import ../sources/mkSource.nix (builtins.fromJSON (builtins.readFile "${fixSrc}/sources/pin.json"));
   };
   arg1 = removeAttrs v1 [ "src" "infuseLib" "sharedModules" ] // {
     inherit specialArgs;

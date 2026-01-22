@@ -1,24 +1,24 @@
 {
   "read-tree": {
     "url": "https://code.tvl.fyi/plain/nix/readTree/default.nix",
-    "type": "file",
-    "hash": "sha256-sdF2DGMOI37K7Ki6RXeLBfb0QrTbp8xpPRNapwzeC14="
+    "hash": "sha256-sdF2DGMOI37K7Ki6RXeLBfb0QrTbp8xpPRNapwzeC14=",
+    "type": "file"
   },
   "infuse-nix": {
     "url": "https://codeberg.org/amjoseph/infuse.nix/archive/trunk.tar.gz",
-    "hash": "sha256-M2SwMXAb+OVojUNZpd3xyXGtrzSrpplxdrIcHsYObkI="
+    "hash": "sha256-GW7S5dsFiQChSbGESrkFyNSzDLKGNH3H0EMeY+NLefY="
   },
   "kdl": {
     "url": "https://raw.githubusercontent.com/sodiboo/niri-flake/refs/heads/main/kdl.nix",
-    "type": "file",
-    "hash": "sha256-JjUzGmxlvI4qyEPukp48CktelHZWJPkjJxzr4hILlxc="
+    "hash": "sha256-JjUzGmxlvI4qyEPukp48CktelHZWJPkjJxzr4hILlxc=",
+    "type": "file"
   },
   "nix-parsec": {
     "url": "https://github.com/milahu/nix-parsec/archive/refs/heads/master.zip",
-    "hash": "sha256-ai+S6tAUfznf2dEjFW6N45PrhAmzhiOuL7BzjVG+KaU="
+    "hash": "sha256-I6ZODAu2aSVr8xiBVewefQQL12wOrTGnLKhX3GFFCwM="
   },
   "flake-compat": {
     "url": "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz",
-    "hash": "sha256-eSBaFYggOa9G1+JZJ1CeAqLjx4/375QjTj7Le2nIFDs="
+    "hash": "sha256-NeCCThCEP3eCl2l/+27kNNK7QrwZB1IJCrXfrbv5oqU="
   }
 }
