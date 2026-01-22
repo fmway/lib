@@ -1,0 +1,18 @@
+sources: let
+  getFlake = src: (import res.flake-compat { inherit src; }).outputs;
+  res = builtins.mapAttrs (k: v: let
+    type = v.type or "tarball";
+    fn = if type == "file" then
+      builtins.fetchurl
+    else if type == "tarball" then
+      fetchTarball
+    else throw "undefined";
+    source = fn {
+      name = v.name or "source";
+      inherit (v) url;
+      sha256 = v.sha256 or v.hash;
+    };
+  in if v.flake or false then
+    getFlake (builtins.toPath source)
+  else source) sources;
+in res

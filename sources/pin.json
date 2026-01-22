@@ -2,23 +2,23 @@
   "read-tree": {
     "url": "https://code.tvl.fyi/plain/nix/readTree/default.nix",
     "type": "file",
-    "sha256": "sha256-5rHD/vbgCiDfFciGGhLvkQQv/XZAEyB5hC6X5vypNDg="
+    "hash": "sha256-sdF2DGMOI37K7Ki6RXeLBfb0QrTbp8xpPRNapwzeC14="
   },
   "infuse-nix": {
     "url": "https://codeberg.org/amjoseph/infuse.nix/archive/trunk.tar.gz",
-    "sha256": "sha256-N+u3vnK3zyXLUuDj/vr62r9tM7uarhKVCaLHWxjo/YY="
+    "hash": "sha256-M2SwMXAb+OVojUNZpd3xyXGtrzSrpplxdrIcHsYObkI="
   },
   "kdl": {
     "url": "https://raw.githubusercontent.com/sodiboo/niri-flake/refs/heads/main/kdl.nix",
     "type": "file",
-    "sha256": "sha256-JjUzGmxlvI4qyEPukp48CktelHZWJPkjJxzr4hILlxc="
+    "hash": "sha256-JjUzGmxlvI4qyEPukp48CktelHZWJPkjJxzr4hILlxc="
   },
   "nix-parsec": {
     "url": "https://github.com/milahu/nix-parsec/archive/refs/heads/master.zip",
-    "sha256": "sha256-I6ZODAu2aSVr8xiBVewefQQL12wOrTGnLKhX3GFFCwM="
+    "hash": "sha256-ai+S6tAUfznf2dEjFW6N45PrhAmzhiOuL7BzjVG+KaU="
   },
   "flake-compat": {
     "url": "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz",
-    "sha256": "sha256-NeCCThCEP3eCl2l/+27kNNK7QrwZB1IJCrXfrbv5oqU="
+    "hash": "sha256-eSBaFYggOa9G1+JZJ1CeAqLjx4/375QjTj7Le2nIFDs="
   }
 }
