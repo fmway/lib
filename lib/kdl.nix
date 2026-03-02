@@ -35,6 +35,7 @@
           append = lib.mkFn "append" res;
           prepend= lib.mkFn "prepend" res;
           assign = lib.mkFn "assign" res;
+          remove = res.assign (removeAttrs res [ "remove" ]) [] // { _remove = true; };
           inherit (fold-args (lib.toList args)) arguments properties;
           __functor = self: args: removeAttrs self [ "merge" "assign" ] // {
             children = self.children ++ (if builtins.isList args then args else [args]);
@@ -45,6 +46,7 @@
     ''
       leaf = name: let res = removeAttrs (plain name) [ "append" "prepend" ] // {
           assign = args: res args // { _do = "assign"; };
+          remove = res.assign (removeAttrs res [ "remove" ]) [] // { _remove = true; };
           __functor = self: args: let
             r = fold-args (lib.toList args);
           in self // {
@@ -105,6 +107,7 @@
                 ) { is_found = false; data = []; } acc;
               in res.data ++ lib.optionals (!res.is_found) [curr]
             ) [])
+            (builtins.filter (x: !x._remove or false))
     ''
   ] (builtins.readFile sources.kdl));
   r = import patched { lib = lib.extend (_: _: {
@@ -115,7 +118,7 @@
     shorts = {
       f = r.flag; l = r.leaf; l' = r.magic-leaf; n = r.node; p = r.plain; s = r.serialize;
     };
-    normalize = x: lib.mapAttrs (k: v: if k != "children" then v else map kdl.normalize v) (removeAttrs x [ "__functor" "_do" "_has" "assign" "merge" ]);
+    normalize = x: lib.mapAttrs (k: v: if k != "children" then v else map kdl.normalize v) (removeAttrs x [ "__functor" "_do" "_has" "assign" "merge" "remove" ]);
     _source = patched;
   };
 in kdl
