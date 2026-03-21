@@ -31,7 +31,7 @@
       res = self'.fmway.treeImport {
         folder = (/. + "${fixSrc}/lib");
         depth = 0;
-        variables = specialArgs // { inherit self super inputs; };
+        variables = specialArgs // { inherit self super inputs specialArgs; };
       };
       fn =
         if lib.isBool infuseLib && infuseLib then

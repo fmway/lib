@@ -12,20 +12,22 @@
     };
     res = import ./lib/fmway/treeImport.nix var {
       folder = ./lib;
-      variables = {
-        inherit lib sources final;
-        self' = self;
-      };
       depth = 0;
+      inherit variables;
     };
   in res // {
     fmway = res.fmway // res.fmway.parser;
+  };
+  variables = {
+    inherit lib sources final;
+    self' = self;
   };
   overlay = self: super: final;
   finalLib = lib.extend overlay;
 in final // {
   lib = finalLib;
   overlays.default = overlay;
+  _input = variables;
 
   apps = lib.genAttrs [ "x86_64-linux" "x86_64-darwin" "aarch64-linux" "aarch64-darwin" ] (system: let
     pkgs = import inputs.nixpkgs { inherit system; overlays = [ self.overlays.updater ]; };
