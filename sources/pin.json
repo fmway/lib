@@ -1,7 +1,12 @@
 {
+  "import-tree": {
+    "url": "https://raw.githubusercontent.com/vic/import-tree/refs/heads/main/default.nix",
+    "hash": "sha256-HcyBX9M/hWavl2wfrN68QPZroa7qGop4IxCMgB+ea68=",
+    "type": "file"
+  },
   "read-tree": {
     "url": "https://code.tvl.fyi/plain/nix/readTree/default.nix",
-    "hash": "sha256-sdF2DGMOI37K7Ki6RXeLBfb0QrTbp8xpPRNapwzeC14=",
+    "hash": "sha256-+PWwqeLcdSA5KHqZiLg5tAyYmbdPEQhjgE8n7FhpYTs=",
     "type": "file"
   },
   "infuse-nix": {

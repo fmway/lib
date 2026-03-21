@@ -2,6 +2,7 @@
   defaultSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
 in {
   readTree = import sources.read-tree {};
+  import-tree = import sources.import-tree;
   mapListToAttrs = fn: l: lib.listToAttrs (map fn l);
   lexer  = import "${sources.nix-parsec}/lexer.nix" { parsec = self'.parsec; };
   parsec = import "${sources.nix-parsec}/parsec.nix";
