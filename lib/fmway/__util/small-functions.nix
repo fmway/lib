@@ -28,6 +28,18 @@
     reverseList
     imap1
     ;
+
+  # Like recursiveUpdate but support auto-append list
+  deepMerge = lhs: rhs:
+    lhs // rhs // (builtins.mapAttrs (rName: rValue:
+      let lValue = lhs.${rName} or null; in
+      if builtins.isAttrs lValue && builtins.isAttrs rValue then
+        deepMerge lValue rValue
+      else if builtins.isList lValue && builtins.isList rValue then
+        lValue ++ rValue
+      else rValue
+    ) rhs);
+
   addIndent = with-first: indent: str:
     lib.concatStringsSep "\n" (
       imap1 (i: x:
@@ -134,8 +146,10 @@
     };
   in switch.${type};
 in {
-  inherit match2;
-  inherit removeSuffix removePrefix hasPrefix hasSuffix replaceStrings fixedInMatch;
+  inherit
+    match2 deepMerge
+    removeSuffix removePrefix hasPrefix hasSuffix replaceStrings fixedInMatch
+  ;
   addIndent = addIndent true;
   addIndent'= addIndent false;
   stringification = stringification false;
