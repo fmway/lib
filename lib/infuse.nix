@@ -1,18 +1,28 @@
 { self', lib, sources, ... }: let
+  inherit (self'.fmway) do;
   fn = import sources.infuse-nix;
-  sugarify = sugars': let
-    sugars = let
-      x = if lib.isAttrs sugars' then lib.attrsToList sugars' else sugars';
-    in self'.fmway.uniqLastBy (x: x.name) (infuse.v1.default-sugars ++ x);
+  mkInfuse = { overlays ? [] }: let
     infuse = fn {
-      inherit lib sugars;
+      inherit lib;
+      sugars =
+        if overlays == [] then
+          null
+        else
+          lib.attrsToList (removeAttrs (lib.fix (lib.extends (lib.composeManyExtensions overlays) (_: infuse.v1 // builtins.listToAttrs infuse.v1.default-sugars))) (builtins.attrNames infuse.v1));
     };
-  in infuse // {
-    __functor = self: self.v1.infuse;
-    assignable = template "__assign";
-    initable   = template "__init";
-    defaultable= template "__default";
-  };
+    self = infuse // {
+      __functor = self: self.v1.infuse;
+      assignable = template "__assign";
+      initable   = template "__init";
+      defaultable= template "__default";
+
+      addSugars = x: mkInfuse {
+        overlays = overlays ++ [
+          (self: super: do (do x self) super)
+        ];
+      };
+    };
+  in self;
 
   template = method: val:
     if lib.isDerivation val || !lib.isAttrs val then {
@@ -24,5 +34,4 @@
         template method v
     ) val;
 
-# FIXME recursive sugarify
-in sugarify {} // { inherit sugarify; }
+in mkInfuse { }

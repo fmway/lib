@@ -12,7 +12,6 @@
     length
     isString
     genList
-    removeAttrs
     elemAt
     split
     ;
@@ -442,4 +441,7 @@ in {
   else if prefix == "../" then
     cwd + "/${ctx}"
   else /. + "/${ctx}";
+
+  /* do :: MaybeFn -> Any -> Any */
+  do = x: args: if builtins.isFunction x then x args else x;
 }
