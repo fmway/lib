@@ -1,7 +1,7 @@
 {
   "import-tree": {
     "url": "https://raw.githubusercontent.com/vic/import-tree/refs/heads/main/default.nix",
-    "hash": "sha256-HcyBX9M/hWavl2wfrN68QPZroa7qGop4IxCMgB+ea68=",
+    "hash": "sha256-FEsHdZ4btT9KJECWheAKbz/TTyyp5sXd8KgYtpE7p8M=",
     "type": "file"
   },
   "read-tree": {
@@ -10,8 +10,9 @@
     "type": "file"
   },
   "infuse-nix": {
-    "url": "https://codeberg.org/amjoseph/infuse.nix/archive/trunk.tar.gz",
-    "hash": "sha256-GW7S5dsFiQChSbGESrkFyNSzDLKGNH3H0EMeY+NLefY="
+    "url": "https://codeberg.org/api/v1/repos/amjoseph/infuse.nix/archive/364ea18b5611b5fd6a6acd7151411b430a70e194.tar.gz?rev=364ea18b5611b5fd6a6acd7151411b430a70e194",
+    "hash": "sha256-PFRrjDC62Mk7cgyst4l/riW0C7o39srZt/+rYq9Iovs=",
+    "mainUrl": "https://codeberg.org/amjoseph/infuse.nix/archive/trunk.tar.gz"
   },
   "kdl": {
     "url": "https://raw.githubusercontent.com/sodiboo/niri-flake/refs/heads/main/kdl.nix",

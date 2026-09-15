@@ -40,15 +40,8 @@ in final // {
   
   # wrap mkShell to handle lorri shellHook problems
   overlays.updater = self: super: {
-    fetch-sources = let
-      get-hash = self.writeScript "get-hash.fish" ''
-        #!${lib.getExe self.fish}
-
-        ${lib.fileContents ./scripts/get-hash.fish}
-      '';
-    in self.writeScriptBin "fetch-sources" ''
+    fetch-sources = self.writeScriptBin "fetch-sources" ''
       #!${lib.getExe self.nushell}
-      alias get-hash = ${get-hash}
 
       ${lib.fileContents ./scripts/fetch-sources.nu}
     '';
