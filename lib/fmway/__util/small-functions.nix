@@ -28,6 +28,18 @@
     imap1
     ;
 
+  resolvePath = cwd': let
+    cwd = builtins.toPath cwd'; # ensure it's really a path
+  in str:
+    # FIXME: should we use /. + ".." or builtins.toPath "..." ?
+    if str == "." || builtins.substring 0 2 str == "./" then
+      builtins.toPath "${cwd}/../${str}"
+    else if builtins.substring 0 1 str == "/" then
+      builtins.toPath "/${str}"
+    else if builtins.substring 0 3 str == "../" then
+      builtins.toPath "${cwd}/${str}"
+    else str;
+
   # Like recursiveUpdate but support auto-append list
   deepMerge = lhs: rhs:
     lhs // rhs // (builtins.mapAttrs (rName: rValue:
@@ -421,7 +433,7 @@ in {
         else v);
 
   /*
-    mkResolvePath :: (String | Path) -> String -> (Path | String)
+    mkResolvePath :: (String | Path) -> Any -> Any
     functions for resolve path by string, return itself if it doesn't seem like paths (./ , ../ or /). for example:
     ```nix
     let
@@ -429,18 +441,15 @@ in {
     in resolvePath "./mypath.json" # => ./path.json 
     ```
    */
-  mkResolvePath = cwd: str: let
-    matched = builtins.match "^([.]{1,2}/|/)(.+)$" str;
-  in if isNull matched then
-    str
-  else let
-    prefix = lib.head matched;
-    ctx = lib.last matched;
-  in if prefix == "./" then
-    cwd + "/${ctx}"
-  else if prefix == "../" then
-    cwd + "/${ctx}"
-  else /. + "/${ctx}";
+  # TODO: Combine with mkParse & mkParse'
+  mkResolvePath = cwd: x: let
+    t = builtins.typeOf x;
+    r = {
+      set = builtins.mapAttrs (_: mkResolvePath cwd) x;
+      list= map (mkResolvePath cwd) x;
+      string = resolvePath cwd x;
+    };
+  in r.${t} or x;
 
   /* do :: MaybeFn -> Any -> Any */
   do = x: args: if builtins.isFunction x then x args else x;
