@@ -1,4 +1,9 @@
 {
+  "nix-select": {
+    "url": "https://git.clan.lol/clan/nix-select/raw/branch/main/select.nix",
+    "type": "file",
+    "hash": "sha256-hLFU9kCSpHKBpODCsYoAJeH0fC1p2TyFXZIZro+lPis="
+  },
   "import-tree": {
     "url": "https://raw.githubusercontent.com/vic/import-tree/refs/heads/main/default.nix",
     "hash": "sha256-FEsHdZ4btT9KJECWheAKbz/TTyyp5sXd8KgYtpE7p8M=",
