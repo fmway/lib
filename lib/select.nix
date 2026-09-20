@@ -2,22 +2,21 @@
   # nix-select with .**. support => auto flatten attrValues / list
   patched = builtins.toFile "select.nix" (builtins.replaceStrings [
     "  if (mode == \"str\") || (mode == \"maybe\") then"
+    "type = mode;"
     "else if (mode == \"str\") || (mode == \"maybe\") then"
     "else if mode == \"start\" then\n          if cur == \"*\" then\n            recurse str (idx + 1) (\n              state\n              // {\n                stack = [ \"end\" ] ++ state.stack;\n                selectors = state.selectors ++ [ { type = \"all\"; } ];\n                acc_str = \"\";\n              }\n            )"
     "selectors: obj:\n    let"
     "selector = builtins.elemAt selectors idx;"
     "if builtins.isList obj then\n            if selector.type == \"all\" then"
-    "if builtins.isAttrs obj then\n            if selector.type == \"all\" then"
+    "if builtins.isAttrs obj then\n            if selector.type == \"all\" then\n              builtins.mapAttrs (_: v: recurse selectors (idx + 1) v) obj"
     "if x.type == \"maybe\" then"
     "if selector.type == \"maybe\" then"
     "{ \${selector.value} = recurse selectors (idx + 1) (builtins.getAttr selector.value obj); }"
   ] [
     # nix
-    ''
-      if mode == "all" then
-        state.selectors ++ [ { type = mode; } ]
-      else if (mode == "str") || (mode == "maybe") || (mode == "maybe_") then
-    ''
+    "  if (mode == \"str\") || (mode == \"maybe\") || (mode == \"maybe_\") || (mode == \"all\") || (mode == \"all_\") then"
+    # nix
+    "type = if mode == \"all_\" then \"all\" else mode;"
     # nix
     ''
       else if mode == "maybe" && cur == "?" then
@@ -28,7 +27,7 @@
             acc_str = "";
           }
         )
-      else if (mode == "str") || (mode == "maybe") || (mode == "maybe_") then
+      else if (mode == "str") || (mode == "maybe") || (mode == "maybe_") || (mode == "all_") then
     ''
     # nix
     ''
@@ -39,6 +38,14 @@
             // {
               stack = [ "end" ] ++ state.stack;
               selectors = state.selectors ++ [ { type = "values"; } ];
+              acc_str = "";
+            }
+          )
+        else if cur == ":" then
+          recurse str (idx + 1) (
+            state
+            // {
+              stack = [ "all_" ];
               acc_str = "";
             }
           )
@@ -84,6 +91,7 @@
         if selector.type == "values" then
           fixValues (recurse selectors (idx + 1)) obj
         else if selector.type == "all" then
+          (x: if selector.value != "" then builtins.warn "all type with custom name not supported for lists" x else x)
     ''
     # nix
     ''
@@ -91,6 +99,15 @@
         if selector.type == "values" then
           fixValues (recurse selectors (idx + 1)) (builtins.attrValues obj)
         else if selector.type == "all" then
+          if selector.value or "" == "" then
+            builtins.mapAttrs (_: v: recurse selectors (idx + 1) v) obj
+          else
+            builtins.listToAttrs (map (x: let
+              o = builtins.getAttr x obj;
+            in {
+              name = builtins.getAttr selector.value o;
+              value = recurse selectors (idx + 1) o;
+            }) (builtins.attrNames obj))
     ''
     # nix
     "if x.type == \"maybe\" || x.type == \"maybe_\" then"
