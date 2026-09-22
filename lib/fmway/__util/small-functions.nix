@@ -40,6 +40,13 @@
       builtins.toPath "${cwd}/${str}"
     else str;
 
+  genDoc = pad: x: let
+    doc = x.__doc or [];
+  in if doc != [] then "\n" + lib.concatMapStringsSep "\n" (x: stringMultiply " " pad + "# ${toString x}") (flat doc) + "\n" else "";
+
+  removeDoc = v:
+    if isAttrs v then removeAttrs v [ "__doc" ] else v;
+
   # Like recursiveUpdate but support auto-append list
   deepMerge = lhs: rhs:
     lhs // rhs // (builtins.mapAttrs (rName: rValue:
@@ -156,10 +163,20 @@
       lambda = "<function>";
     };
   in switch.${type};
+
+  # stringMultiply :: String -> int -> String
+  stringMultiply = str: count:
+    foldl' (acc: _: str + acc) "" (genList (x: x) count);
+
+  # flat :: Elem -> [Elem]
+  # convert any Elem except List to [Elem]
+  flat = x:
+    if isList x then x
+    else [x];
 in {
   inherit
     match2 deepMerge
-    removeSuffix removePrefix hasPrefix hasSuffix replaceStrings fixedInMatch
+    removeSuffix removePrefix hasPrefix hasSuffix replaceStrings fixedInMatch stringMultiply flat
   ;
   addIndent = addIndent true;
   addIndent'= addIndent false;
@@ -216,12 +233,6 @@ in {
   # match :: [String] -> String -> [Null | String] | Null
   # for debugging
   match' = matches: str: doMatch matches str { index = 0; };
-
-  # flat :: Elem -> [Elem]
-  # convert any Elem except List to [Elem]
-  flat = x:
-    if isList x then x
-    else [x];
 
   # uniqBy' :: (Elem -> String) -> [Any] -> [Any]
   uniqBy = fn: arr:
@@ -353,10 +364,6 @@ in {
         map (x: ".${x}") ext;
   in removeSuffix' exts target;
 
-  # stringMultiply :: String -> int -> String
-  stringMultiply = str: count:
-    foldl' (acc: _: str + acc) "" (genList (x: x) count);
-
   # excludeList :: [Any] -> [Any] -> [Any]
   excludeList = excludes: inputs: let
     fixed = map (x: toString x) excludes;
@@ -453,4 +460,29 @@ in {
 
   /* do :: MaybeFn -> Any -> Any */
   do = x: args: if builtins.isFunction x then x args else x;
+
+  genNix = genNix' 0;
+    
+  genNix' = pad: x': let
+    x = x'.__value or (if builtins.isAttrs x' then removeAttrs x' [ "__doc" ] else x');
+    t = builtins.typeOf x;
+  in genDoc pad x' + {
+    string = "\"${x}\"";
+    list =
+      if x == [] then "[]"
+      else "[\n${lib.concatMapStringsSep "\n" (item:
+        genDoc (pad + 2) item +
+        stringMultiply " " (pad + 2) + genNix' (pad + 2) (removeDoc item)
+      ) x}\n${stringMultiply " " pad}]";
+    set =
+      if x ? __raw && builtins.isString x.__raw then
+        addIndent false (stringMultiply " " pad) (lib.trim x.__raw)
+      else if x == {} then "{ }" else "{\n${lib.concatMapAttrsStringSep "\n" (k: v: 
+        genDoc (pad + 2) v +
+        stringMultiply " " (pad + 2) + "${k} = ${genNix' (pad + 2) (removeDoc v)};"
+      ) x}\n${stringMultiply " " pad}}";
+    null = "null";
+    int = toString x;
+    bool = if x then "true" else "false";
+  }.${t} or (throw "Unknown type ${t}");
 }
