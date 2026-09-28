@@ -58,6 +58,23 @@
       else rValue
     ) rhs);
 
+  
+  # deepMergeList :: [Attrs] -> Attrs
+  deepMergeList =
+    builtins.zipAttrsWith (_: v: let
+      f = builtins.head v;
+    in
+      if builtins.length v == 1 then
+        f
+      else if builtins.isAttrs f then
+        deepMergeList v
+      else if builtins.isList f then
+        builtins.concatLists v
+      else
+        lib.last v
+    );
+
+
   addIndent = with-first: indent: str:
     lib.concatStringsSep "\n" (
       imap1 (i: x:
@@ -175,7 +192,7 @@
     else [x];
 in {
   inherit
-    match2 deepMerge
+    match2 deepMerge deepMergeList
     removeSuffix removePrefix hasPrefix hasSuffix replaceStrings fixedInMatch stringMultiply flat
   ;
   addIndent = addIndent true;
