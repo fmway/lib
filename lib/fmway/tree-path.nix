@@ -44,4 +44,15 @@
     });
   in if isList dir then flatten (map (x: tree-path { dir = x; inherit prefix; }) dir) 
     else flatten (all { dir = dir; prefix = prefix; });
-in tree-path
+in {
+  __functor = self: self.v2;
+  v1 = tree-path;
+  v2 = var: let
+    dir = builtins.toPath (var.dir or var);
+    s = builtins.stringLength dir + 1;
+    p'= if var.prefix or "" == "" then [] else [var.prefix];
+    files = lib.filesystem.listFilesRecursive dir;
+  in if builtins.isAttrs var then
+      map (p: builtins.concatStringsSep "/" (p' ++ [(builtins.substring s (-1) p)])) files
+    else map (p: /. + p) files;
+}
