@@ -28,18 +28,6 @@
     imap1
     ;
 
-  resolvePath = cwd': let
-    cwd = builtins.toPath cwd'; # ensure it's really a path
-  in str:
-    # FIXME: should we use /. + ".." or builtins.toPath "..." ?
-    if str == "." || builtins.substring 0 2 str == "./" then
-      builtins.toPath "${cwd}/../${str}"
-    else if builtins.substring 0 1 str == "/" then
-      builtins.toPath "/${str}"
-    else if builtins.substring 0 3 str == "../" then
-      builtins.toPath "${cwd}/${str}"
-    else str;
-
   genDoc = pad: x: let
     doc = x.__doc or [];
   in if doc != [] then "\n" + lib.concatMapStringsSep "\n" (x: stringMultiply " " pad + "# ${toString x}") (flat doc) + "\n" else "";
@@ -457,23 +445,42 @@ in {
         else v);
 
   /*
-    mkResolvePath :: (String | Path) -> Any -> Any
+    resolvePath :: (String | Path) -> Any -> Any
     functions for resolve path by string, return itself if it doesn't seem like paths (./ , ../ or /). for example:
     ```nix
-    let
-      resolvePath = mkResolvePath ./.;
-    in resolvePath "./mypath.json" # => ./path.json 
+      resolvePath "/home/user" "./path.json" # => "/home/user/path.json"
     ```
    */
-  # TODO: Combine with mkParse & mkParse'
-  mkResolvePath = cwd: x: let
-    t = builtins.typeOf x;
-    r = {
-      set = builtins.mapAttrs (_: mkResolvePath cwd) x;
-      list= map (mkResolvePath cwd) x;
-      string = resolvePath cwd x;
-    };
-  in r.${t} or x;
+  resolvePath = {
+    __functor = self: cwd: x: let
+      t = builtins.typeOf x;
+      r = {
+        set    = builtins.mapAttrs (_: self cwd) x;
+        list   = map (self cwd) x;
+        string = self.map (p: builtins.toPath "${cwd}/${p}") x;
+      };
+    in r.${t} or x;
+
+    /*
+       resolvePath.map :: (String -> Any) -> String -> Any
+       e.g:
+       ```nix
+        resolvePath.map (path: "real-${path}") "./path, ../woy, nothing" => "real-./path, real-../woy, nothing"
+       ```
+    */
+    map = mapf: str: let
+      tokens = builtins.split "(''([^']|'[^'])*''|\"([^\"\\\\]|\\\\.)*\"|\\.+/[a-zA-Z0-9_./+-]+)" str;
+    in lib.concatMapStrings (token:
+      if isList token then let
+        matchStr = elemAt token 0;
+        isRelativePath = builtins.substring 0 2 matchStr == "./" || builtins.substring 0 3 matchStr == "../";
+      in
+        if isRelativePath then
+          mapf matchStr
+        else matchStr
+      else token
+    ) tokens;
+  };
 
   /* do :: MaybeFn -> Any -> Any */
   do = x: args: if builtins.isFunction x then x args else x;

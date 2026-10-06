@@ -1,3 +1,6 @@
+---
+title = "test parser";
+---
 <!--{=
 font = "Times New Roman";
 version = "26.05";
@@ -32,3 +35,12 @@ xxx
 
 <!--{# replace_many [ (replace_re "blue" "black") (replace_color "babi") (replace_between "(" ")" "ababab") ] #}-->
 color = (true) blue #ababab
+
+<!--{# (x: "${x}/abab") #}-->
+<!--{# rv ./from #}-->
+my_path = ./from
+
+super_path = ../yoi <!--{< rv ../yoi >}-->
+
+<!--{# rv (builtins.toJSON self.meta) #}-->
+yoi: how

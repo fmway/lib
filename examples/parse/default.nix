@@ -1,10 +1,11 @@
 let
   inherit (import ../../.) fmway;
-in fmway.mkParse' {
+in fmway.parse {
   colors.foreground = "aeaeae";
   colors.background = "ababab";
   prefix = "<!--{";
   postfix = "}-->";
   rep = true;
   x = "World";
-} (builtins.readFile ./context.md)
+  source = ./context.md;
+}
