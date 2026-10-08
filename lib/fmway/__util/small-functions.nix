@@ -485,7 +485,16 @@ in {
   /* do :: MaybeFn -> Any -> Any */
   do = x: args: if builtins.isFunction x then x args else x;
 
-  genNix = genNix' 0;
+  genNix = lib.fix (s: {
+    script = pkgs: x:
+      pkgs.writeScript "gen-nix.sh" /* bash */ ''
+        #!${lib.getExe pkgs.bash}
+
+        output="''${1:-/dev/stdout}"
+        cat ${pkgs.writeText "source.nix" (s x)} > $output
+      '';
+    __functor = _: genNix' 0;
+  });
     
   genNix' = pad: x': let
     x = x'.__value or (if builtins.isAttrs x' then removeAttrs x' [ "__doc" ] else x');
