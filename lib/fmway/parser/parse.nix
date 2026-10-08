@@ -18,7 +18,7 @@
     post = lib.trim post';
   };
 
-  fix = cwd: removeLetExpr: arr: importer: let
+  fix = cwd: removeLetExpr: arr: importer: transform: let
     res = lib.foldl' (acc: curr: let
       key = curr._key or "expr-${toString acc.idx}";
       res = if lib.isString curr then curr
@@ -40,9 +40,16 @@
       ${res._let}in self
     '';
     expr = importer file;
-  in {
+  in rec {
     inherit file expr;
-    text = res.gen;
+    text = transform res.gen;
+    mkApp = pkgs:
+      pkgs.writeScript "parse-gen.sh" /* bash */ ''
+        #!${lib.getExe pkgs.bash}
+
+        output="''${1:-/dev/stdout}"
+        cat ${pkgs.writeText "source" text} > $output
+      '';
   };
 
   toExpr = str: str': let
@@ -81,6 +88,7 @@
     fixedPostfix= map fixedInMatch postfix;
   in lib.throwIfNot (lib.length prefix == lib.length postfix) "both prefix and postfix doesn't match"
   (let
+    # TODO: support multiple sources
     source = builtins.toPath variables.source;
     str =
       if variables ? text && builtins.isString variables.text then
@@ -141,11 +149,10 @@
       _expr = let r = builtins.elemAt m 0; in if isNull r then "{}" else "{${r}}";
     }];
     init = if getMetadata then metaExpr else [];
-    res = fix cwd removeLetExpr (fn init str) fixImporter;
+    res = fix cwd removeLetExpr (fn init str) fixImporter transform;
   in {
     inherit debug;
-    inherit (res) expr file;
-    text = transform res.text;
+    inherit (res) expr file text;
   });
 
   exts = {
