@@ -148,6 +148,19 @@
     text = transform res.text;
   });
 
+  exts = {
+    html = {
+      prefix = "<!--{";
+      postfix= "}-->";
+    };
+    md = exts.html;
+
+    # TODO: ...
+  };
+
+  getPrefixPostFixByExtensions = fileName: let
+    ext = lib.toLower (lib.last (lib.splitString "." (baseNameOf (builtins.toPath fileName))));
+  in exts.${ext} or null;
   inherit (self'.fmway)
     match'
     flat
@@ -376,9 +389,13 @@ in lib.fix (s: {
       r = self.raw x;
     in lib.warnIf r.debug "(parse') result: ${r.file}" r.text;
 
-    raw = { ... } @ arg: parse (arg // {
+    raw = { ... } @ arg: let
+      pp = getPrefixPostFixByExtensions arg.source;
+    in parse (arg // {
       removeLetExpr = arg.removeLetExpr or false;
       customs = arg.customs or [] ++ builtins.attrValues customs;
-    } // fns);
+    } // fns // lib.optionalAttrs (!arg?prefix && !arg?postfix && arg?source && !isNull pp) {
+      inherit (pp) postfix prefix;
+    });
   };
 })
