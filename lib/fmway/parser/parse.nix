@@ -177,14 +177,14 @@
       cat ${pkgs.writeText "source" (fn x)} > $output
     '';
 in lib.fix (s: {
-  inherit (s.v2) __functor raw script;
+  inherit (s.v2) __functor raw mkScript;
   v1 = {
     __functor = self: x: let
       r = self.raw x;
     in lib.warnIf r.debug "(parse) result: ${r.file}" r.text;
 
     raw = parse;
-    script = mkScript s.v1;
+    mkScript = mkScript s.v1;
   };
 
   v2 = let
@@ -407,6 +407,6 @@ in lib.fix (s: {
       inherit (pp) postfix prefix;
     });
 
-    script = mkScript s.v2;
+    mkScript = mkScript s.v2;
   };
 })

@@ -486,7 +486,7 @@ in {
   do = x: args: if builtins.isFunction x then x args else x;
 
   genNix = lib.fix (s: {
-    script = pkgs: x:
+    mkScript = pkgs: x:
       pkgs.writeScript "gen-nix.sh" /* bash */ ''
         #!${lib.getExe pkgs.bash}
 
