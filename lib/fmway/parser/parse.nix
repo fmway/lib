@@ -67,7 +67,7 @@
   };
 
   getMatch = prefixs: postfixs: fn:
-    match' (map (i: fn (lib.elemAt prefixs i) (lib.elemAt postfixs i)) (lib.range 0 (lib.length prefixs - 1)));
+    fmway.match.debug (map (i: fn (lib.elemAt prefixs i) (lib.elemAt postfixs i)) (lib.range 0 (lib.length prefixs - 1)));
 
   /*
     parse :: Attrs -> String
@@ -169,8 +169,8 @@
   getPrefixPostFixByExtensions = fileName: let
     ext = lib.toLower (lib.last (lib.splitString "." (baseNameOf (builtins.toPath fileName))));
   in exts.${ext} or null;
-  inherit (self'.fmway)
-    match'
+  inherit (self') fmway;
+  inherit (fmway)
     flat
     fixedInMatch
     addIndent
@@ -185,12 +185,12 @@
       cat ${pkgs.writeText "source" (fn x)} > $output
     '';
 in lib.fix (s: {
-  inherit (s.v2) __functor raw mkScript;
+  inherit (s.v2) __functor debug mkScript;
   v1 = {
     __functor = self: x:
-      (self.raw x).text;
+      (self.debug x).text;
 
-    raw = parse;
+    debug = parse;
     mkScript = mkScript s.v1;
   };
 
@@ -365,9 +365,9 @@ in lib.fix (s: {
     };
   in {
     __functor = self: x:
-      (self.raw x).text;
+      (self.debug x).text;
 
-    raw = { ... } @ arg: let
+    debug = { ... } @ arg: let
       pp = getPrefixPostFixByExtensions arg.source;
     in parse (arg // {
       removeLetExpr = arg.removeLetExpr or false;

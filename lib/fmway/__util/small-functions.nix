@@ -114,23 +114,6 @@
     data = getPreMatch.data ++ (if isString prefix && prefix != "?:" then [named] else [(isNull prefix)]) ++ getPostMatch.data;
   };
 
-  # Experimental matching with groups support
-  match2 = regex: str: let
-    parseMatch = fnMatch regex;
-    matched = builtins.match (if isNull parseMatch then regex else parseMatch.str) str;
-  in
-    if isNull matched then
-      null
-    else if isNull parseMatch then
-      { groups = {}; data = matched; }
-    else removeAttrs (foldl' (acc: curr: let
-      m = elemAt matched acc.idx;
-    in acc // {
-      groups = acc.groups // lib.optionalAttrs (isString curr) { "${curr}" = m; };
-      data = acc.data ++ lib.optionals (isString curr || (builtins.isBool curr && curr)) [m];
-      idx = acc.idx + 1;
-    }) { groups = {}; data = []; idx = 0; } parseMatch.data) [ "idx" ];
-
   transformerString = name: re: fn: let
     result = x: let
       m = builtins.match re x;
@@ -180,24 +163,54 @@
     else [x];
 in {
   inherit
-    match2 deepMerge deepMergeList
+    deepMerge deepMergeList
     removeSuffix removePrefix hasPrefix hasSuffix replaceStrings fixedInMatch stringMultiply flat
   ;
   addIndent = addIndent true;
   addIndent'= addIndent false;
-  stringification = stringification false;
-  stringification'= stringification true;
+  stringification = {
+    __functor = _: stringification false;
+    include-drv = stringification true;
+  };
 
-  # listToFunction :: [Function] -> Any -> ...
-  # listToFunction, a function to make list of functions that behaves like a function
-  # e.g:
-  # fn = listToFunction (map (x: y: z: x + y)) [ 1 2 3 ]
-  # fn 5 1 # => [ 7 8 9 ]
-  listToFunction = listToFunction' false;
+  # Might be removed, i forgot what the usecase is for
+  listToFunction = {
+    # listToFunction :: [Function] -> Any -> ...
+    # listToFunction, a function to make list of functions that behaves like a function
+    # e.g:
+    # fn = listToFunction (map (x: y: z: x + y) [ 1 2 3 ])
+    # fn 5 1 # => [ 7 8 9 ]
+    __functor = _: listToFunction' false;
 
-  # listToFunction' :: [FunctionLike] -> Any
-  # like listToFunction but support __functor detection
-  listToFunction'= listToFunction' true;
+    # listToFunction.loose :: [FunctionLike] -> Any
+    # like listToFunction.v1 but support __functor detection
+    loose = listToFunction' true;
+  };
+
+  # match :: [String] -> String -> [Null | String] | Null
+  # builtins.match but support list
+  match = {
+    __functor = self: matches: str:
+      (self.debug matches str).data;
+
+    debug = matches: str: doMatch matches str { index = 0; };
+    # Experimental matching with groups support
+    v2 = regex: str: let
+      parseMatch = fnMatch regex;
+      matched = builtins.match (if isNull parseMatch then regex else parseMatch.str) str;
+    in
+      if isNull matched then
+        null
+      else if isNull parseMatch then
+        { groups = {}; data = matched; }
+      else removeAttrs (foldl' (acc: curr: let
+        m = elemAt matched acc.idx;
+      in acc // {
+        groups = acc.groups // lib.optionalAttrs (isString curr) { "${curr}" = m; };
+        data = acc.data ++ lib.optionals (isString curr || (builtins.isBool curr && curr)) [m];
+        idx = acc.idx + 1;
+      }) { groups = {}; data = []; idx = 0; } parseMatch.data) [ "idx" ];
+  };
 } // rec {
   toString = x:
     if isNull x then
@@ -228,16 +241,9 @@ in {
     foldl' (acc: x: fn acc target.${x}) init (attrNames target);
 
   # foldAttrs' :: (Any -> Any -> Any) -> Any -> AttrSet -> Any
-  # ffoldAttrs with key value
+  # foldAttrs with key value
   foldAttrs' = fn: init: target:
     foldl' (acc: x: fn acc x target.${x}) init (attrNames target);
-  # match :: [String] -> String -> [Null | String] | Null
-  # builtins.match but support list
-  match  = matches: str: (match' matches str).data;
-
-  # match :: [String] -> String -> [Null | String] | Null
-  # for debugging
-  match' = matches: str: doMatch matches str { index = 0; };
 
   # uniqBy' :: (Elem -> String) -> [Any] -> [Any]
   uniqBy = fn: arr:
@@ -252,7 +258,7 @@ in {
 
   # firstChar :: String -> String
   firstChar = str:
-    head (filter (x: x != "") (flatten (split "(.)" str)));
+    if str == "" then "" else builtins.substring 0 1 str;
   
   # readEnv :: Path -> {String}
   readEnv = file: let
@@ -267,16 +273,23 @@ in {
     value = elemAt curr 1;
   }) list); # Just to parse .env file to mapAttrs;
 
-  # replaceStrings' :: AttrSet -> AttrSet -> String -> String
-  replaceStrings' = var: { start ? "%(", end ? ")s" } @ prefix: str: let # %(var)s 
-    names = attrNames var;
-    from = map (x: "${start}${x}${end}") names; 
-    to   = map (x: "${toString var.${x}}") names;
-  in replaceStrings from to str;
+  # replaceStrings' :: AttrSet -> String -> String
+  replaceStrings' = {
+    # default = %(var)s
+    __functor = self: var:
+      self.custom "%[(]([^)]+)[)]s" (m:
+        lib.select (builtins.elemAt m 0) var);
+    custom = regex: fn: str:
+      lib.concatMapStrings (token:
+        if isList token then
+          toString (fn token)
+        else token
+      ) (builtins.split regex str);
+  };
 
   # basename :: String -> String
   basename = k: let
-    bs = baseNameOf k;
+    bs = getFilename k;
     matched = builtins.match "^(.*)\\.(.*)$" bs;
   in if matched == null then bs else head matched;
 
@@ -310,7 +323,7 @@ in {
 
   # hasExtension :: (String | [String]) -> (Path | String) -> Bool
   hasExtension = ext: target: let
-    exts = if isString ext then ext else map (x: ".${x}") ext;
+    exts = if isString ext then ".${ext}" else map (x: ".${x}") ext;
   in hasSuffix' exts target;
   
   # hasPrefix' :: (String | [String]) -> (Path | String) -> Bool
@@ -420,29 +433,29 @@ in {
     ++ lib.optionals (config ? home-manager && config.home-manager.users ? ${user}) config.home-manager.users.${user}.home.packages # home-manager packages
     );
 
-    camelize =
-      transformerString "camelize" # regex
-      "^(.*)[-_ ]([^-_ ])(.*)$" # FIXME
-      (i: v:
-        if i == 2 then
-          lib.toUpper v
-        else v);
+  camelize =
+    transformerString "camelize" # regex
+    "^(.*)[-_ ]([^-_ ])(.*)$" # FIXME
+    (i: v:
+      if i == 2 then
+        lib.toUpper v
+      else v);
 
-    kebabize =
-      transformerString "kebabize" # regex
-      "^(.*)([A-Z_ ])([^A-Z_ ]+)(.*)$" # FIXME
-      (i: v:
-        if i == 2 then
-          "-" + lib.optionalString (v != "_" && v != " ") (lib.toLower v)
-        else v);
+  kebabize =
+    transformerString "kebabize" # regex
+    "^(.*)([A-Z_ ])([^A-Z_ ]+)(.*)$" # FIXME
+    (i: v:
+      if i == 2 then
+        "-" + lib.optionalString (v != "_" && v != " ") (lib.toLower v)
+      else v);
 
-    snakeize =
-      transformerString "snakeize" # regex
-      "^(.*)([-A-Z ])([^-A-Z ]+)(.*)$" # FIXME
-      (i: v:
-        if i == 2 then
-          "_" + lib.optionalString (v != "-" && v != " ") (lib.toLower v)
-        else v);
+  snakeize =
+    transformerString "snakeize" # regex
+    "^(.*)([-A-Z ])([^-A-Z ]+)(.*)$" # FIXME
+    (i: v:
+      if i == 2 then
+        "_" + lib.optionalString (v != "-" && v != " ") (lib.toLower v)
+      else v);
 
   /*
     resolvePath :: (String | Path) -> Any -> Any

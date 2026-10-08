@@ -19,8 +19,9 @@
     fmway = res.fmway // res.fmway.parser;
   };
   variables = {
-    inherit lib sources final;
+    inherit sources final;
     self' = self;
+    lib = finalLib;
   };
   overlay = self: super: final;
   finalLib = lib.extend overlay;
