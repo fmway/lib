@@ -1,5 +1,5 @@
 { lib, self', ... }: let
-
+  # FIXME: rewrite this shit
   genModules' = shareds: moduleDir: args: let
     modulesPath = builtins.toPath moduleDir;
     listDir = attrNames (filterAttrs (_: v: v == "directory") (builtins.readDir modulesPath));
