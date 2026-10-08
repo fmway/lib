@@ -12,7 +12,7 @@
  ;
 
  inherit (self'.fmway)
-  hasSuffix'
+  hasSuffix
  ;
 in rec {
   # get all directory that have default.nix
@@ -33,7 +33,7 @@ in rec {
   (let
     filtered = key: value:
       value == "regular" &&
-      hasSuffix' ".nix" key && key != "default.nix";
+      hasSuffix.v2 ".nix" key && key != "default.nix";
     dir = readDir folder;
   in mapAttrsToList (name: value: "${name}") (filterAttrs filtered dir));
 

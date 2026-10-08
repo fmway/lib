@@ -5,7 +5,7 @@
   ;
   inherit (self'.fmway)
     tree-path
-    hasSuffix'
+    hasSuffix
     excludePrefix
   ;
 
@@ -19,7 +19,7 @@ in rec {
       "genTreeImports' required argument with type path"
   (excludes: let
     list = tree-path { dir = folder; prefix = ""; };
-    filtered = filter (x: hasSuffix' ".nix" (toString x)) list;
+    filtered = filter (x: hasSuffix.v2 ".nix" (toString x)) list;
     excluded = excludePrefix excludes filtered;
   in map (x: folder + "/${x}") excluded);
   

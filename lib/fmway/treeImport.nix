@@ -23,10 +23,10 @@
   inherit (self'.fmway)
     tree-path
     excludeItems
-    hasPrefix'
+    hasPrefix
     doImport
     matchers
-    removePrefix'
+    removePrefix
     removeExtension
   ;
 
@@ -86,9 +86,9 @@
         first = if length arr == 1 then removeExtension ext (head arr) else head arr;
         res = toObj (tail arr) path;
       in 
-      if hasPrefix' "__" first then {
+      if hasPrefix.v2 "__" first then {
         ".var" = {
-          "${removePrefix' "__" first}" = res;
+          "${removePrefix.v2 "__" first}" = res;
         };
       } else { 
         "${first}" = res;
@@ -101,7 +101,7 @@
         lists
       else filter (x: let
         res = splitString "/" x;
-        is-a-var = lib.any (x: hasPrefix' "__" x) (lib.genList (x: lib.elemAt res x) max);
+        is-a-var = lib.any (x: hasPrefix.v2 "__" x) (lib.genList (x: lib.elemAt res x) max);
         less-than-max = lib.length res <= max;
       in is-a-var || less-than-max) lists;
 
@@ -113,7 +113,7 @@
     
     filteredByExcludes = filter (x: ! lib.any (y: let path = toString y; in
       if isNull (lib.match "^/.*" path) then
-        (hasPrefix' path x)
+        (hasPrefix.v2 path x)
       else
         ("${folder}/${x}" == path)
     ) excludes) filteredByDepth;

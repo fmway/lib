@@ -1,6 +1,5 @@
 { lib, ... }: let
   inherit (builtins)
-    replaceStrings
     isAttrs
     attrNames
     foldl'
@@ -16,14 +15,9 @@
     split
     ;
   inherit (lib)
-    hasSuffix
     splitString
-    hasPrefix
     fileContents
     listToAttrs
-    flatten
-    removePrefix
-    removeSuffix
     reverseList
     imap1
     ;
@@ -161,10 +155,19 @@
   flat = x:
     if isList x then x
     else [x];
+
+  toString2 = x:
+    if isNull x then
+      "null"
+    else if builtins.isString x then
+      x
+    else if builtins.isBool x then
+      if x then "true" else "false"
+    else toString x;
 in {
   inherit
     deepMerge deepMergeList
-    removeSuffix removePrefix hasPrefix hasSuffix replaceStrings fixedInMatch stringMultiply flat
+    fixedInMatch stringMultiply flat
   ;
   addIndent = addIndent true;
   addIndent'= addIndent false;
@@ -211,15 +214,27 @@ in {
         idx = acc.idx + 1;
       }) { groups = {}; data = []; idx = 0; } parseMatch.data) [ "idx" ];
   };
+
+  replaceStrings = {
+    __functor = builtins.replaceStrings;
+    
+    # replaceStrings.v2 :: AttrSet -> String -> String
+    # replaceStrings.v2 = replaceStrings + regex
+    v2 = {
+      # default = %(var)s
+      __functor = self: var:
+        self.custom "%[(]([^)]+)[)]s" (m:
+          lib.select (builtins.elemAt m 0) var);
+      custom = regex: fn: str:
+        lib.concatMapStrings (token:
+          if isList token then
+            toString2 (fn token)
+          else token
+        ) (builtins.split regex str);
+    };
+  };
 } // rec {
-  toString = x:
-    if isNull x then
-      "null"
-    else if builtins.isString x then
-      x
-    else if builtins.isBool x then
-      if x then "true" else "false"
-    else builtins.toString x;
+  toString = toString2;
   elem = fn: arrs:
     foldl' (acc: curr: if fn curr then curr else acc) null arrs;
 
@@ -273,20 +288,6 @@ in {
     value = elemAt curr 1;
   }) list); # Just to parse .env file to mapAttrs;
 
-  # replaceStrings' :: AttrSet -> String -> String
-  replaceStrings' = {
-    # default = %(var)s
-    __functor = self: var:
-      self.custom "%[(]([^)]+)[)]s" (m:
-        lib.select (builtins.elemAt m 0) var);
-    custom = regex: fn: str:
-      lib.concatMapStrings (token:
-        if isList token then
-          toString (fn token)
-        else token
-      ) (builtins.split regex str);
-  };
-
   # basename :: String -> String
   basename = k: let
     bs = getFilename k;
@@ -309,34 +310,45 @@ in {
       target-filename = getFilename target;
     in filename == target-filename;
 
-  # hasSuffix' :: (String | [String]) -> (Path | String) -> Bool
-  hasSuffix' = suffix: target:
-  if isList suffix then
-    let
-      filtered = filter (x: hasSuffix' x target) suffix;
-    in if length filtered < 1 then
-      false
-    else true
-  else let
-    targetStr = toString target;
-  in hasSuffix suffix targetStr;
+  hasSuffix = lib.fix (s: {
+    __functor = self: self.v2;
+    v1 = lib.hasSuffix;
+
+    # hasSuffix.v2 :: (String | [String]) -> (Path | String) -> Bool
+    v2 = suffix: target:
+      if isList suffix then
+        let
+          filtered = filter (x: s.v2 x target) suffix;
+        in if length filtered < 1 then
+          false
+        else true
+      else let
+        targetStr = toString target;
+      in s.v1 suffix targetStr;
+  });
 
   # hasExtension :: (String | [String]) -> (Path | String) -> Bool
   hasExtension = ext: target: let
     exts = if isString ext then ".${ext}" else map (x: ".${x}") ext;
-  in hasSuffix' exts target;
+  in hasSuffix.v2 exts target;
   
-  # hasPrefix' :: (String | [String]) -> (Path | String) -> Bool
-  hasPrefix' = prefix: target:
-  if isList prefix then
-    let
-      filtered = filter (x: hasPrefix' x target) prefix;
-    in if length filtered < 1 then
-      false
-    else true
-  else let
-    targetStr = toString target;
-  in hasPrefix prefix targetStr;
+  hasPrefix = lib.fix (s: {
+    v1 = lib.hasPrefix;
+
+    # hasPrefix.v2 :: (String | [String]) -> (Path | String) -> Bool
+    v2 = prefix: target:
+    if isList prefix then
+      let
+        filtered = filter (x: s.v2 x target) prefix;
+      in if length filtered < 1 then
+        false
+      else true
+    else let
+      targetStr = toString target;
+    in s.v1 prefix targetStr;
+
+    __functor = self: self.v2;
+  });
 
   # hasRegex :: (String | [String]) -> (Path | String) -> Bool
   hasRegex = regex: target:
@@ -349,29 +361,41 @@ in {
     matched = builtins.match regex targetStr;
   in if isNull matched then false else true;
 
-  # removePrefix' :: (String | [String]) -> (Path | String) -> String
-  removePrefix' = prefix: target:
-  if isList prefix then
-    let
-      filtered = filter (x: hasSuffix' x target) prefix;
-    in if length filtered < 1 then
-      target
-    else removePrefix' (head filtered) target
-  else let
-    targetStr = toString target;
-  in removePrefix prefix targetStr;
+  removePrefix = lib.fix (s: {
+    v1 = lib.removePrefix;
 
-  # removeSuffix' :: (String | [String]) -> (Path | String) -> String
-  removeSuffix' = suffix: target:
-  if isList suffix then
-    let
-      filtered = filter (x: hasSuffix' x target) suffix;
-    in if length filtered < 1 then
-      target
-    else removeSuffix' (head filtered) target
-  else let
-    targetStr = toString target;
-  in removeSuffix suffix targetStr;
+    # removePrefix.v2 :: (String | [String]) -> (Path | String) -> String
+    v2 = prefix: target:
+      if isList prefix then
+        let
+          filtered = filter (x: hasPrefix.v2 x target) prefix;
+        in if length filtered < 1 then
+          target
+        else s.v2 (head filtered) target
+      else let
+        targetStr = toString target;
+      in s.v1 prefix targetStr;
+
+    __functor = self: self.v2;
+  });
+
+  removeSuffix = lib.fix (s: {
+    v1 = lib.removeSuffix;
+
+    # removeSuffix.v2 :: (String | [String]) -> (Path | String) -> String
+    v2 = suffix: target:
+      if isList suffix then
+        let
+          filtered = filter (x: hasSuffix.v2 x target) suffix;
+        in if length filtered < 1 then
+          target
+        else s.v2 (head filtered) target
+      else let
+        targetStr = toString target;
+      in s.v1 suffix targetStr;
+
+    __functor = self: self.v2;
+  });
 
   # removeExtension :: (String | [String]) -> (Path | String) -> String
   removeExtension = ext: target: let
@@ -380,7 +404,7 @@ in {
         ".${ext}"
       else
         map (x: ".${x}") ext;
-  in removeSuffix' exts target;
+  in removeSuffix.v2 exts target;
 
   # excludeList :: [Any] -> [Any] -> [Any]
   excludeList = excludes: inputs: let
@@ -402,13 +426,13 @@ in {
   # excludePrefix :: [String] -> (String | [String]) -> [String]
   excludePrefix = excludes: prefixs: let
     fixed = map (x: toString x) excludes;
-    filtering = x: ! any (y: hasPrefix' y x) fixed;
+    filtering = x: ! any (y: hasPrefix.v2 y x) fixed;
   in filter filtering prefixs;
 
   # excludeSuffix :: [String] -> (String | [String]) -> [String]
   excludeSuffix = excludes: suffixs: let
     fixed = map (x: toString x) excludes;
-    filtering = x: ! any (y: hasSuffix' y x) fixed;
+    filtering = x: ! any (y: hasSuffix.v2 y x) fixed;
   in filter filtering suffixs;
 
   printPathv1 = config: x: let

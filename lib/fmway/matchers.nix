@@ -6,10 +6,10 @@
     filter
   ;
   inherit (self'.fmway)
-    hasSuffix'
+    hasSuffix
     hasRegex
     hasFilename
-    hasPrefix'
+    hasPrefix
     doImport
     excludeItems
     getFilename
@@ -22,10 +22,10 @@
   
   basicMatchers = {
     regex = re: path: hasRegex re (getFilename path);
-    extension = ext: path: hasSuffix' ".${ext}" (getFilename path);
-    suffix = suf: path: hasSuffix' suf (getFilename path);
+    extension = ext: path: hasSuffix.v2 ".${ext}" (getFilename path);
+    suffix = suf: path: hasSuffix.v2 suf (getFilename path);
     filename = file: path: hasFilename file path;
-    prefix = pre: path: hasPrefix' pre (getFilename path);
+    prefix = pre: path: hasPrefix.v2 pre (getFilename path);
   };
 
   basic = mapAttrs (key: value: let
