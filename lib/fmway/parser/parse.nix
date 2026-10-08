@@ -1,4 +1,9 @@
 { lib, self', ... }: let
+  substring = start: end: str: let
+    l = builtins.stringLength str;
+    s = if start < 0 then l + start + 1 else start;
+    e = if start < 0 then l + end + 1 else end;
+  in builtins.substring s e str;
   # for handle ctx multiple postfix
   getCtx = str: postfix: let
     fn = str: let
@@ -24,18 +29,22 @@
       res = if lib.isString curr then curr
         else if curr ? _let then
           if removeLetExpr then "" else curr.str
+        else if curr ? _meta && !expr ? ${key} then
+          ""
         else expr.${key};
     in {
       # FIXME is it possible to make a frienldy error message?
       idx = if lib.isString curr || curr ? _key || curr ? _let then acc.idx else acc.idx + 1;
       _let= acc._let + lib.optionalString (curr ? _let) "${curr._let}\n";
       ctx = acc.ctx + lib.optionalString (curr ? _expr) (addIndent "  " "${key} = ${resolvePath.map (p: "(/. + \"${cwd}/${p}\")") curr._expr};\n");
+      _meta = if curr ? _meta then "${if isNull acc._meta then "" else acc._meta}${curr._meta}\n" else acc._meta;
       gen = acc.gen + (if lib.isStringLike res then res else builtins.toJSON res);
-    }) { idx = 0; _let = ""; ctx = ""; gen = ""; } arr;
+    }) { idx = 0; _let = ""; ctx = ""; gen = ""; _meta = null; } arr;
 
     file = builtins.toFile "parse-expr.nix" ''
       var: with var;
       let self = {
+      ${lib.optionalString (!isNull res._meta) "meta = {${res._meta}};"}
       ${res.ctx}};
       ${res._let}in self
     '';
@@ -74,7 +83,7 @@
     } # => "this is work and work"
     ```
   */
-  parse = { debug ? false, transform ? (x: x), removeLetExpr ? true, importer ? import, customs ? [], ... } @ variables: let
+  parse = { transform ? (x: x), removeLetExpr ? true, importer ? import, customs ? [], ... } @ variables: let
     prefix = flat (variables.prefix or "{{");
     postfix= flat (variables.postfix or "}}");
     fixedPrefix = map fixedInMatch prefix;
@@ -131,20 +140,19 @@
         post= lib.elemAt matches.data 2;
         r   =
           fn [] pre
-        ++lib.warnIf debug "(parse) found: ${pr}${ctx.pre'}${po}" [rest]
+        ++ [rest]
         ++lib.optional (ctx.post' != "") ctx.post' ++ fn [] post;
       in fn r "";
 
     metaExpr = let
       m = builtins.match "^---\n(.*\n)?---.*" str;
     in if isNull m then [] else [{
-      _key = "meta";
-      _expr = let r = builtins.elemAt m 0; in if isNull r then "{}" else "{${r}}";
+      _meta = let r = builtins.elemAt m 0; in if isNull r then "" else "${r}";
     }];
-    init = if getMetadata then metaExpr else [];
-    res = fix cwd removeLetExpr (fn init str) fixImporter transform;
+    trace' = fn [] str ++ lib.optionals getMetadata metaExpr;
+    res = fix cwd removeLetExpr trace' fixImporter transform;
   in {
-    inherit debug;
+    "trace" = trace';
     inherit (res) expr file text;
   });
 
@@ -179,9 +187,8 @@
 in lib.fix (s: {
   inherit (s.v2) __functor raw mkScript;
   v1 = {
-    __functor = self: x: let
-      r = self.raw x;
-    in lib.warnIf r.debug "(parse) result: ${r.file}" r.text;
+    __functor = self: x:
+      (self.raw x).text;
 
     raw = parse;
     mkScript = mkScript s.v1;
@@ -206,7 +213,7 @@ in lib.fix (s: {
     pipe = pipes: ctx:
       if pipes == [] then
         ctx
-      else pipe (lib.init pipes) "(${lib.last pipes} ${ctx})";
+      else pipe (lib.init pipes) "(fmway.toString (${lib.last pipes} ${ctx}))";
 
     # ref: https://elkowar.github.io/yolk/book/rhai_docs/template/
     # template tags
@@ -233,48 +240,49 @@ in lib.fix (s: {
         '';
       };
 
-      # context {< macro >}
+      # context {< macro >} => macro context
       inline-tags = str: prefix: postfix: let
-        matched = builtins.match "(^|.*\n)([^\n]+)(${prefix}<([^\n]+)>${postfix}[^\n]*)(.*)" str;
+        matched = builtins.match "(^|.*\n)([^\n]*[^\t ]+)([\t ]*${prefix}<[\t ]*([^\n\t ][^\n]*[^\n\t ])[\t ]*>${postfix}[^\n]*)(.*)" str;
       in if isNull matched then { ok = false; } else let
         macro  = builtins.elemAt matched 3;
         context= builtins.elemAt matched 1;
       in {
         ok = true;
         data._expr = /* nix */ ''
-          ${lib.trim macro} ${toString' context} + ${toString' (builtins.elemAt matched 2)}
+          ${macro} ${toString' context} + ${toString' (builtins.elemAt matched 2)}
         '';
         pre = builtins.elemAt matched 0;
         post= builtins.elemAt matched 4;
       };
 
       # {% macro %}
+      # multi
       # context
       # {% end %}
+      # => macro multi\ncontext
       block-tags = str: prefix: postfix: let
-        matched = builtins.match "^(.*)(${prefix}%([^\n]+)%${postfix}[^\n]*)\n(.*)\n(${prefix}%[ ]*end[ ]*%${postfix})(.*)$" str;
+        matched = builtins.match "^(.*)(${prefix}%[\t ]*([^\n\t ][^\n]*[^\n\t ])[\t ]*%${postfix}[^\n]*)(\n(.*)\n|\n)(${prefix}%[\t ]*end[\t ]*%${postfix})(.*)$" str;
       in if isNull matched then { ok = false; } else let
         macro  = builtins.elemAt matched 2;
-        context= builtins.elemAt matched 3;
+        context= let r = builtins.elemAt matched 4; in if isNull r then "" else r;
       in {
         ok = true;
         data._expr = /* nix */ ''
           ${toString' (builtins.elemAt matched 1)} + "\n" +
-          ${lib.trim macro} ${toString' context} + "\n" +
-          ${toString' (builtins.elemAt matched 4)}
+          ${macro} ${toString' context} + "\n" +
+          ${toString' (builtins.elemAt matched 5)}
         '';
         pre = builtins.elemAt matched 0;
-        post= builtins.elemAt matched 5;
+        post= builtins.elemAt matched 6;
       };
 
-      # TODO pretty error handling
+      # TODO pretty error handling, maybe using github:denful/bend?
       # (str: prefix: postfix: let
       #
       # in {})
     };
 
     # builtins functions
-    # FIXME: duplicate keys
     fns = {
       # Replace a hex coor value
       replace_color = to: from: let
@@ -283,7 +291,7 @@ in lib.fix (s: {
         isFound = !isNull matched;
         found = "#${builtins.elemAt matched 1}";
         rest = builtins.elemAt matched 0;
-        replaced = "#${toString to}";
+        replaced = "${toString to}";
         context = from;
         matched = builtins.match "(.*)#(${hex}{8}|${hex}{6}|${hex}{3}).*" from;
         __toString = self: if !self.isFound then self.context else builtins.replaceStrings [self.found] [ self.replaced ] self.context;
@@ -292,29 +300,7 @@ in lib.fix (s: {
 
       # Multiple replaces for a value
       replace_many = lib.flip (builtins.foldl' (acc: curr: curr (toString acc)));
-      # replace_many = lib.flip (builtins.foldl' (acc: curr: curr (toString acc) // {
-      #   founds = lib.optionals (lib.isAttrs acc && acc ? founds) acc.founds ++ [curr.found];
-      #   replaceds = lib.optionals (lib.isAttrs acc && acc ? replaceds) acc.replaceds ++ [curr.replaced];
-      # }));
       rm   = fns.replace_many;
-
-      # FIXME
-      # replace with sequence, Maybe we need nix-parsec, i'm too confused with nix regex
-      # replace_seq = funcs: {
-      #   inherit funcs;
-      #   seqs  = [];
-      #   target = null;
-      #   __toString = self: let
-      #     x = builtins.foldl' (acc: curr: let
-      #       r = replace_many (map (x: x curr) self.funcs) acc.target;
-      #     in { target = r.rest; founds = acc.founds ++ r.founds; replaceds = acc.replaceds ++ r.replaceds; }) { target = self.target; founds = []; replaceds = []; } (lib.reverseList self.seqs);
-      #   in builtins.replaceStrings x.founds x.replaceds self.target;
-      #   __functor = self: args: self // {
-      #     seqs = self.seqs ++ lib.optionals (!isNull self.target) [self.target];
-      #     target = args;
-      #   };
-      # };
-      # rseq = fns.replace_seq;
 
       # replace a version value
       # xx.xx or major.minor.patch-xxx
@@ -329,24 +315,15 @@ in lib.fix (s: {
       };
       rver = fns.replace_ver;
       
-      # 
       replace_quoted = to: from: let
-        matched = [
-          (builtins.match ''(.*)((["])([^"]+)(["])).*'' from)
-          (builtins.match ''(.*)((['])([^']+)(['])).*'' from)
-        ];
-        m = let n = builtins.elemAt matched 0; in if isNull n then builtins.elemAt matched 1 else n;
+        m = builtins.match ''^([^"']*)("[^"]*"|'[^']*')(.*)$'' from;
+        q = substring 0 1 (builtins.elemAt m 1);
       in {
         isFound = !isNull m;
-        inherit matched;
-        rest = builtins.elemAt m 0;
-        found  = builtins.elemAt m 1;
-        replaced = builtins.elemAt m 2 + toString to + builtins.elemAt m 4;
+        replaced = "${builtins.elemAt m 0}${q}${toString to}${q}${builtins.elemAt m 2}";
         context = from;
-        __toString = self: if ! self.isFound then
-          self.context
-        else
-          builtins.replaceStrings [ self.found ] [ self.replaced ] self.context;
+        __toString = self:
+          if ! self.isFound then self.context else self.replaced;
       };
       rq = fns.replace_quoted;
 
@@ -366,43 +343,36 @@ in lib.fix (s: {
 
       replace_re = regex: to: from: rec {
         isFound = !isNull matched;
-        matched = builtins.match "(.*)(${regex}).*" from;
-        found = builtins.elemAt matched 1;
-        rest = builtins.elemAt matched 0;
+        matched = builtins.match "(.*)(${regex})(.*)" from;
         context = from;
-        replaced = builtins.replaceStrings (builtins.genList (x: "$" + toString x) (lib.length matched - 1)) (lib.tail matched) (toString to);
-        __toString = self: if ! self.isFound then self.context else builtins.replaceStrings [ self.found ] [ self.replaced ] self.context;
+        replaced = "${builtins.elemAt matched 0}${builtins.replaceStrings (builtins.genList (x: "$" + toString x) (lib.length matched - 1)) (lib.tail matched) (toString to)}${builtins.elemAt matched 2}";
+        __toString = self: if ! self.isFound then self.context else self.replaced;
       };
       rr = fns.replace_re;
 
       replace_value = to: from: let
-        matched = [
-          (builtins.match "(.*)(=)([ ]*)([^= ]+).*" from)
-          (builtins.match "(.*)(:)([ ]*)([^= ]+).*" from)
-        ];
-        m = let n = builtins.elemAt matched 0; in if isNull n then builtins.elemAt matched 1 else n;
+        m = builtins.match "^([ \t]*[a-zA-Z0-9_.-]+[ \t]*[:=][ \t]*)(.*)$" from;
+        t = substring (-2) (-1) (builtins.elemAt m 1);
+        t'= if t == ";" || t == "," then t else "";
       in {
         isFound = !isNull m;
-        inherit matched;
-        found = "${builtins.elemAt m 1}${builtins.elemAt m 2}${builtins.elemAt m 3}";
-        rest = builtins.elemAt m 0;
         context = from;
-        replaced = "${builtins.elemAt m 1}${builtins.elemAt m 2}${toString to}";
+        replaced = "${builtins.elemAt m 0}${toString to}${t'}";
         __toString = self:
-          if !self.isFound then self.context else builtins.replaceStrings [ self.found ] [ self.replaced ] self.context;
+          if !self.isFound then self.context else self.replaced;
       };
       rv = fns.replace_value;
     };
   in {
-    __functor = self: x: let
-      r = self.raw x;
-    in lib.warnIf r.debug "(parse') result: ${r.file}" r.text;
+    __functor = self: x:
+      (self.raw x).text;
 
     raw = { ... } @ arg: let
       pp = getPrefixPostFixByExtensions arg.source;
     in parse (arg // {
       removeLetExpr = arg.removeLetExpr or false;
       customs = arg.customs or [] ++ builtins.attrValues customs;
+      fmway = arg.fmway or {} // self'.fmway;
     } // fns // lib.optionalAttrs (!arg?prefix && !arg?postfix && arg?source && !isNull pp) {
       inherit (pp) postfix prefix;
     });

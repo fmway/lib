@@ -33,8 +33,13 @@ Home Manager (25.05) <!--{< replace_ver (toString version) >}-->
 xxx
 <!--{% end %}-->
 
-<!--{# replace_many [ (replace_re "blue" "black") (replace_color "babi") (replace_between "(" ")" "ababab") ] #}-->
+<!--{# replace_re "blue" "black" #}-->
+<!--{# replace_color "babi" #}-->
+<!--{# replace_between "(" ")" "ababab" #}-->
 color = (true) blue #ababab
+
+<!--{% (_: "yoi") %}-->
+<!--{% end %}-->
 
 <!--{# (x: "${x}/abab") #}-->
 <!--{# rv ./from #}-->
@@ -42,5 +47,5 @@ my_path = ./from
 
 super_path = ../yoi <!--{< rv ../yoi >}-->
 
-<!--{# rv (builtins.toJSON self.meta) #}-->
+<!--{# rv (builtins.toJSON (self.meta or {})) #}-->
 yoi: how
