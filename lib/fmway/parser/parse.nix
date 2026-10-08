@@ -40,16 +40,9 @@
       ${res._let}in self
     '';
     expr = importer file;
-  in rec {
+  in {
     inherit file expr;
     text = transform res.gen;
-    mkApp = pkgs:
-      pkgs.writeScript "parse-gen.sh" /* bash */ ''
-        #!${lib.getExe pkgs.bash}
-
-        output="''${1:-/dev/stdout}"
-        cat ${pkgs.writeText "source" text} > $output
-      '';
   };
 
   toExpr = str: str': let
@@ -175,14 +168,23 @@
     addIndent
     resolvePath
   ;
+
+  mkScript = fn: pkgs: x:
+    pkgs.writeScript "parse-gen.sh" /* bash */ ''
+      #!${lib.getExe pkgs.bash}
+
+      output="''${1:-/dev/stdout}"
+      cat ${pkgs.writeText "source" (fn x)} > $output
+    '';
 in lib.fix (s: {
-  inherit (s.v2) __functor raw;
+  inherit (s.v2) __functor raw script;
   v1 = {
     __functor = self: x: let
       r = self.raw x;
     in lib.warnIf r.debug "(parse) result: ${r.file}" r.text;
 
     raw = parse;
+    script = mkScript s.v1;
   };
 
   v2 = let
@@ -404,5 +406,7 @@ in lib.fix (s: {
     } // fns // lib.optionalAttrs (!arg?prefix && !arg?postfix && arg?source && !isNull pp) {
       inherit (pp) postfix prefix;
     });
+
+    script = mkScript s.v2;
   };
 })
