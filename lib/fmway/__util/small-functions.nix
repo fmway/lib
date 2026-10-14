@@ -537,7 +537,7 @@ in {
     x = x'.__value or (if builtins.isAttrs x' then removeAttrs x' [ "__doc" ] else x');
     t = builtins.typeOf x;
   in genDoc pad x' + {
-    string = "\"${x}\"";
+    string = lib.strings.escapeNixString x;
     list =
       if x == [] then "[]"
       else "[\n${lib.concatMapStringsSep "\n" (item:
@@ -549,7 +549,7 @@ in {
         addIndent false (stringMultiply " " pad) (lib.trim x.__raw)
       else if x == {} then "{ }" else "{\n${lib.concatMapAttrsStringSep "\n" (k: v: 
         genDoc (pad + 2) v +
-        stringMultiply " " (pad + 2) + "${k} = ${genNix' (pad + 2) (removeDoc v)};"
+        stringMultiply " " (pad + 2) + "${lib.strings.escapeNixIdentifier k} = ${genNix' (pad + 2) (removeDoc v)};"
       ) x}\n${stringMultiply " " pad}}";
     null = "null";
     int = toString x;
