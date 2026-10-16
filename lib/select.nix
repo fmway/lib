@@ -1,5 +1,9 @@
 { sources, ... }: let
   # nix-select with .**. support => auto flatten attrValues / list
+  # - **1 = unique list
+  # - **1(group) = groupBy (unique list)
+  # - **(group) = groupBy
+  # - (selectors...) = force eval
   patched = builtins.toFile "select.nix" (builtins.replaceStrings [
     "acc_str = \"\";"
     "  if (mode == \"str\") || (mode == \"maybe\") then"
@@ -68,15 +72,22 @@
     # nix
     ''
       else if mode == "all" then
-        if cur == "*" then
-          recurse str (idx + 1) (
-            state
-            // {
-              stack = [ "end" ] ++ state.stack;
-              selectors = state.selectors ++ [ { type = "values"; } ];
-              acc_str = "";
-            }
-          )
+        if cur == "*" then let
+          unique = builtins.substring (idx + 1) 1 str == "1";
+          next = idx + (if unique then 2 else 1);
+          # FIXME: use sequence instead
+          m = builtins.match "^[(]([a-zA-Z0-9_.-]+)[)]($|[.].*)" (builtins.substring next (-1) str);
+          group = if isNull m then null else builtins.elemAt m 0;
+          next_idx = next + (if isNull group then 0 else builtins.stringLength group + 2);
+        in
+          recurse str next_idx (
+              state
+              // {
+                stack = [ "end" ] ++ state.stack;
+                selectors = state.selectors ++ [ { type = "values"; inherit unique group; } ];
+                acc_str = "";
+              }
+            )
         else if cur == ":" then
           recurse str (idx + 1) (
             state
@@ -95,7 +106,19 @@
             }
           )
       else if mode == "start" then
-        if cur == "*" then
+        if cur == "(" then let e = getCtxEval idx str; in
+          recurse str e.next_idx (
+            state
+            // {
+              stack = [ "end" ] ++ state.stack;
+              selectors = state.selectors ++ [{
+                type = "eval";
+                evals = parseSelector e.ctx;
+              }];
+              acc_str = "";
+            }
+          )
+        else if cur == "*" then
           recurse str (idx + 1) (
             state
             // {
@@ -106,8 +129,25 @@
     ''
     # nix
     ''
+      getCtxEval = idx: str: let
+        l = builtins.stringLength str;
+        getCtx = range: builtins.substring (idx + 1) (range - idx - 1) str;
+        go = idx: state: let
+          cur = builtins.substring idx 1 str;
+        in
+          if idx >= l then
+            throw "Can't parse cause unmatched close parenthesis"
+          else if cur == "(" then
+            go (idx + 1) (state // { open = state.open + 1; })
+          else if cur == ")" then
+            if state.open == state.close + 1 then
+              { next_idx = idx + 1; ctx = getCtx idx; }
+            else go (idx + 1) (state // { close = state.close + 1; })
+          else go (idx + 1) state;
+      in go idx { open = 0; close = 0; };
       getKey = selector:
         if selector.rename or "" != "" then selector.rename else selector.value;
+      unique = builtins.foldl' (acc: e: if builtins.elem e acc then acc else acc ++ [ e ]) [ ];
       applySelectors =
         selectors: obj: let
           peek = i: if builtins.length selectors == i then { type = "end"; } else builtins.elemAt selectors i;
@@ -122,21 +162,26 @@
           builtins.concatMap
         else map;
       fixValues =
-        fn: l: builtins.filter (x: x != { }) (mapValues fn l);
+        selector: fn: l:
+          (r: if !isNull (selector.group or null) then builtins.groupBy (x: x.''${selector.group}) (builtins.partition (x: x ? ''${selector.group}) r).right else r)
+          ((if (selector.unique or false) then unique else r: r)
+            (builtins.filter (x: x != { }) (mapValues fn l)));
     ''
     # nix
     ''
-      if builtins.isList obj then
+      if selector.type == "eval" then
+        recurse selectors (idx + 1) (applySelectors selector.evals obj)
+      else if builtins.isList obj then
         if selector.type == "values" then
-          fixValues (recurse selectors (idx + 1)) obj
+          fixValues selector (recurse selectors (idx + 1)) obj
         else if selector.type == "all" then
-          (x: if selector.value != "" then builtins.warn "all type with custom name not supported for lists" x else x)
+          (x: if selector.value or "" != "" then builtins.warn "all type with custom name not supported for lists" x else x)
     ''
     # nix
     ''
       if builtins.isAttrs obj then
         if selector.type == "values" then
-          fixValues (recurse selectors (idx + 1)) (builtins.attrValues obj)
+          fixValues selector (recurse selectors (idx + 1)) (builtins.attrValues obj)
         else if selector.type == "all" then
           if selector.value or "" == "" then
             builtins.mapAttrs (_: v: recurse selectors (idx + 1) v) obj
