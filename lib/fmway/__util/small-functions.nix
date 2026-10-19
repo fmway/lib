@@ -20,6 +20,8 @@
     listToAttrs
     reverseList
     imap1
+    findFirst
+    flip
     ;
 
   genDoc = pad: x: let
@@ -276,17 +278,25 @@ in {
     if str == "" then "" else builtins.substring 0 1 str;
   
   # readEnv :: Path -> {String}
-  readEnv = file: let
-    parseEnv = str: let
-      res = split "^([^# ][^= ]+)=(.*)$" str;
-    in if isNull res || length res <= 1 then null else elemAt res 1; # key=value => [ key value ]
-    no-empty = x: x != ""; # env with no value will be ignored
-    listMaybeEnv = splitString "\n" (fileContents file);
-    list = filter (x: !isNull x) (map parseEnv (filter no-empty listMaybeEnv));
-  in listToAttrs (map (curr: {
-    name = elemAt curr 0;
-    value = elemAt curr 1;
-  }) list); # Just to parse .env file to mapAttrs;
+  readEnv = file:
+    assert lib.pathIsRegularFile file;
+    let
+      vars = builtins.concatMap (x: [("$" + x) "\${${x}}"]) (attrNames s);
+      values = builtins.concatMap (x: [x x]) (builtins.attrValues s);
+      fix = builtins.replaceStrings vars values;
+      s = listToAttrs (builtins.concatMap (t:
+        if isList t then [{
+          name = builtins.elemAt t 1;
+          value = let
+            v = builtins.elemAt t 3;
+            v' = if isNull v then
+                builtins.elemAt t 2
+              else v;
+          in fix v';
+        }]
+        else []
+      ) (builtins.split "(^|\n)([^#=][^= ]*)=(\"([^\"\n]*)\"|[^\n]*)" (builtins.readFile file)));
+    in s; # Just to parse .env file to mapAttrs;
 
   # basename :: String -> String
   basename = k: let
@@ -296,19 +306,12 @@ in {
 
   # getFilename :: (Path | String) -> String
   getFilename = path:
+    assert isString path || lib.types.path.check path;
     baseNameOf (toString path);
 
   # hasFilename :: String -> (String | Path) -> Bool
   hasFilename = filename: target:
-    if isList filename then
-      let
-        filtered = filter (x: hasFilename x target) filename;
-      in if length filtered < 1 then
-        false
-      else true
-    else let
-      target-filename = getFilename target;
-    in filename == target-filename;
+    any (x: getFilename x == filename) (flat target);
 
   hasSuffix = lib.fix (s: {
     __functor = self: self.v2;
@@ -316,65 +319,45 @@ in {
 
     # hasSuffix.v2 :: (String | [String]) -> (Path | String) -> Bool
     v2 = suffix: target:
-      if isList suffix then
-        let
-          filtered = filter (x: s.v2 x target) suffix;
-        in if length filtered < 1 then
-          false
-        else true
-      else let
-        targetStr = toString target;
-      in s.v1 suffix targetStr;
+      assert isString target || lib.types.path.check target; let
+        t = toString target;
+      in any (flip s.v1 t) (flat suffix);
   });
 
   # hasExtension :: (String | [String]) -> (Path | String) -> Bool
-  hasExtension = ext: target: let
-    exts = if isString ext then ".${ext}" else map (x: ".${x}") ext;
-  in hasSuffix.v2 exts target;
+  hasExtension = ext: target:
+    assert isString target || lib.types.path.check target;
+    let t = toString target; in
+    any (x: hasSuffix.v1 ".${x}" t) (flat ext);
   
   hasPrefix = lib.fix (s: {
     v1 = lib.hasPrefix;
 
     # hasPrefix.v2 :: (String | [String]) -> (Path | String) -> Bool
     v2 = prefix: target:
-    if isList prefix then
-      let
-        filtered = filter (x: s.v2 x target) prefix;
-      in if length filtered < 1 then
-        false
-      else true
-    else let
-      targetStr = toString target;
-    in s.v1 prefix targetStr;
+      assert isString target || lib.types.path.check target; let
+        t = toString target;
+      in any (flip s.v1 t) (flat prefix);
 
     __functor = self: self.v2;
   });
 
   # hasRegex :: (String | [String]) -> (Path | String) -> Bool
   hasRegex = regex: target:
-  if isList regex then
-    let
-      filtered = filter (x: hasRegex x target) regex;
-    in if length filtered < 1 then false else true
-  else let
-    targetStr = toString target;
-    matched = builtins.match regex targetStr;
-  in if isNull matched then false else true;
+    assert isString target || lib.types.path.check target;
+    any (re: !isNull (builtins.match re target)) (flat regex);
 
   removePrefix = lib.fix (s: {
     v1 = lib.removePrefix;
 
-    # removePrefix.v2 :: (String | [String]) -> (Path | String) -> String
+    # removePrefix.v2 :: (String | [String]) -> (Path | String | [String|Path]) -> String|[String]
     v2 = prefix: target:
-      if isList prefix then
-        let
-          filtered = filter (x: hasPrefix.v2 x target) prefix;
-        in if length filtered < 1 then
-          target
-        else s.v2 (head filtered) target
-      else let
-        targetStr = toString target;
-      in s.v1 prefix targetStr;
+      if isList target then
+        map (s.v2 prefix) target
+      else
+        assert isString target || lib.types.path.check target;
+        let t = toString target; in
+          s.v1 (findFirst (flip hasPrefix.v1 t) "" (flat prefix)) t;
 
     __functor = self: self.v2;
   });
@@ -382,29 +365,22 @@ in {
   removeSuffix = lib.fix (s: {
     v1 = lib.removeSuffix;
 
-    # removeSuffix.v2 :: (String | [String]) -> (Path | String) -> String
+    # removeSuffix.v2 :: (String | [String]) -> (Path | String | [String|Path]) -> String|[String]
     v2 = suffix: target:
-      if isList suffix then
-        let
-          filtered = filter (x: hasSuffix.v2 x target) suffix;
-        in if length filtered < 1 then
-          target
-        else s.v2 (head filtered) target
-      else let
-        targetStr = toString target;
-      in s.v1 suffix targetStr;
+      if isList target then
+        map (s.v2 suffix) target
+      else
+        assert isString target || lib.types.path.check target;
+        let t = toString target; in
+          s.v1 (findFirst (flip hasSuffix.v1 t) "" (flat suffix)) t;
 
     __functor = self: self.v2;
   });
 
-  # removeExtension :: (String | [String]) -> (Path | String) -> String
-  removeExtension = ext: target: let
-    exts =
-      if isString ext then
-        ".${ext}"
-      else
-        map (x: ".${x}") ext;
-  in removeSuffix.v2 exts target;
+  # removeExtension :: (String | [String]) -> (Path | String | [String|Path]) -> String|[String]
+  removeExtension = ext: target:
+    assert isString target || lib.types.path.check target;
+    removeSuffix.v2 (map (x: ".${x}") (flat ext)) target;
 
   # excludeList :: [Any] -> [Any] -> [Any]
   excludeList = excludes: inputs: let
