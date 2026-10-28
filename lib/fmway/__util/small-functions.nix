@@ -29,7 +29,7 @@
   in if doc != [] then "\n" + lib.concatMapStringsSep "\n" (x: stringMultiply " " pad + "# ${toString x}") (flat doc) + "\n" else "";
 
   removeDoc = v:
-    if isAttrs v then removeAttrs v [ "__doc" ] else v;
+    if isAttrs v then removeAttrs v [ "__doc" "__oneliner" ] else v;
 
   # Like recursiveUpdate but support auto-append list
   deepMerge = lhs: rhs:
@@ -506,29 +506,34 @@ in {
         output="''${1:-/dev/stdout}"
         cat ${pkgs.writeText "source.nix" (s x)} > $output
       '';
-    __functor = _: genNix' 0;
+    __functor = _: genNix' 0 false;
+    oneliner = genNix' 0 true;
   });
     
-  genNix' = pad: x': let
-    x = x'.__value or (if builtins.isAttrs x' then removeAttrs x' [ "__doc" ] else x');
+  genNix' = pad: oneliner': x': let
+    x = x'.__value or (removeDoc x');
     t = builtins.typeOf x;
-  in genDoc pad x' + {
+    oneliner = x'.__oneliner or oneliner' == true;
+    sep = if oneliner then " " else "\n";
+    genPad = pad: if oneliner then "" else stringMultiply " " pad;
+  in (if oneliner then "" else genDoc pad x') + {
     string = lib.strings.escapeNixString x;
     list =
       if x == [] then "[]"
-      else "[\n${lib.concatMapStringsSep "\n" (item:
-        genDoc (pad + 2) item +
-        stringMultiply " " (pad + 2) + genNix' (pad + 2) (removeDoc item)
-      ) x}\n${stringMultiply " " pad}]";
+      else "[${sep}${lib.concatMapStringsSep sep (item:
+        (if oneliner then "" else genDoc (pad + 2) item) +
+        genPad (pad + 2) + genNix' (pad + 2) (item.__oneliner or oneliner) (removeDoc item)
+      ) x}${sep}${genPad pad}]";
     set =
       if x ? __raw && builtins.isString x.__raw then
-        addIndent false (stringMultiply " " pad) (lib.trim x.__raw)
-      else if x == {} then "{ }" else "{\n${lib.concatMapAttrsStringSep "\n" (k: v: 
-        genDoc (pad + 2) v +
-        stringMultiply " " (pad + 2) + "${lib.strings.escapeNixIdentifier k} = ${genNix' (pad + 2) (removeDoc v)};"
-      ) x}\n${stringMultiply " " pad}}";
+        addIndent false (genPad pad) (lib.trim x.__raw)
+      else if x == {} then "{ }" else "{${sep}${lib.concatMapAttrsStringSep sep (k: v: 
+        (if oneliner then "" else genDoc (pad + 2) v) +
+        genPad (pad + 2) + "${lib.strings.escapeNixIdentifier k} = ${genNix' (pad + 2) (v.__oneliner or oneliner) (removeDoc v)};"
+      ) x}${sep}${genPad pad}}";
     null = "null";
     int = toString x;
     bool = if x then "true" else "false";
+    lambda = "<<FUNC>>";
   }.${t} or (throw "Unknown type ${t}");
 }
