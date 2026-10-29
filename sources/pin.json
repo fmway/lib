@@ -27,5 +27,9 @@
   "flake-compat": {
     "url": "https://flakehub.com/f/edolstra/flake-compat/1.tar.gz",
     "hash": "sha256-NeCCThCEP3eCl2l/+27kNNK7QrwZB1IJCrXfrbv5oqU="
+  },
+  "nix-std": {
+    "url": "https://github.com/chessai/nix-std/archive/master.tar.gz",
+    "hash": "sha256-e+7MJF2gsgTBuOWv4mCimSP0D9+naeFSw9a7N3yEmv4="
   }
 }

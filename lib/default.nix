@@ -1,6 +1,7 @@
 { sources, lib, self', ... }: let
   defaultSystems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
 in {
+  std = import sources.nix-std;
   readTree = import sources.read-tree {};
   import-tree = import sources.import-tree;
   mapListToAttrs = fn: l: lib.listToAttrs (map fn l);
