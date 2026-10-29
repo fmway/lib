@@ -1,5 +1,5 @@
 { sources, lib, self', ... }: let
-  defaultSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+  defaultSystems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" ];
 in {
   readTree = import sources.read-tree {};
   import-tree = import sources.import-tree;

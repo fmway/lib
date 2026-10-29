@@ -4,19 +4,14 @@
     attrNames
     foldl'
     head
-    tail
     isList
     filter
     any
-    length
     isString
     genList
     elemAt
-    split
     ;
   inherit (lib)
-    splitString
-    fileContents
     listToAttrs
     reverseList
     imap1
@@ -66,49 +61,11 @@
       ) (lib.splitString "\n" str)
     );
 
-  doMatch = matches: str: res:
-    if ! isList matches then
-      doMatch [matches] str { index = 0; }
-    else if matches == [] then
-      { isMatch = false; data = null; index = -1; }
-    else let
-      r = builtins.match (head matches) str;
-    in if isNull r then
-      doMatch (tail matches) str (res // { index = res.index + 1; })
-    else (res // { isMatch = true; data = r; })
-  ;
-
   # FIXME
   listNeedFixed = [ "$" "{" "}" "." "(" ")" "[" "|" ];
 
   fixedInMatch = str:
     lib.foldl' (acc: curr: acc + (if lib.any (x: curr == x) listNeedFixed then "[${curr}]" else curr)) "" (lib.splitString "" str);
-
-  # FIXME can't nested groups
-  # ?: for no name
-  # ?<..> for named
-  reMatchGroup = /* regex */ "(^|.*[^[])([(]([?](:|<([^<>()]+)>))([^()]+)[)]|[(]([^()]+)[)])(.*)";
-
-  fnMatch = str: let
-    matched = builtins.match reMatchGroup str;
-  in if isNull matched then
-    null
-  else let
-    preB   = builtins.elemAt matched 0;
-    prefix = builtins.elemAt matched 2; # null || ?: || ?<..>
-    named  = builtins.elemAt matched 4; # string if prefix == ?<..>, else null
-    body   = builtins.elemAt matched (if isNull prefix then 6 else 5);
-    postB  = builtins.elemAt matched 7;
-    getPreMatch = let
-      r = fnMatch preB;
-    in if lib.trim preB == "" || isNull r then { str = preB; data = []; } else r; 
-    getPostMatch = let
-      r = fnMatch postB;
-    in if lib.trim postB == "" || isNull r then { str = postB; data = []; } else r;
-  in {
-    str = getPreMatch.str + "(${body})" + getPostMatch.str;
-    data = getPreMatch.data ++ (if isString prefix && prefix != "?:" then [named] else [(isNull prefix)]) ++ getPostMatch.data;
-  };
 
   transformerString = name: re: fn: let
     result = x: let
@@ -190,31 +147,6 @@ in {
     # listToFunction.loose :: [FunctionLike] -> Any
     # like listToFunction.v1 but support __functor detection
     loose = listToFunction' true;
-  };
-
-  # match :: [String] -> String -> [Null | String] | Null
-  # builtins.match but support list
-  match = {
-    __functor = self: matches: str:
-      (self.debug matches str).data;
-
-    debug = matches: str: doMatch matches str { index = 0; };
-    # Experimental matching with groups support
-    v2 = regex: str: let
-      parseMatch = fnMatch regex;
-      matched = builtins.match (if isNull parseMatch then regex else parseMatch.str) str;
-    in
-      if isNull matched then
-        null
-      else if isNull parseMatch then
-        { groups = {}; data = matched; }
-      else removeAttrs (foldl' (acc: curr: let
-        m = elemAt matched acc.idx;
-      in acc // {
-        groups = acc.groups // lib.optionalAttrs (isString curr) { "${curr}" = m; };
-        data = acc.data ++ lib.optionals (isString curr || (builtins.isBool curr && curr)) [m];
-        idx = acc.idx + 1;
-      }) { groups = {}; data = []; idx = 0; } parseMatch.data) [ "idx" ];
   };
 
   replaceStrings = {
@@ -414,8 +346,7 @@ in {
   printPathv1 = config: x: let
     user = config.users.users.${x} or {};
     home-manager = config.home-manager.users.${x} or {};
-    toString = arr: builtins.concatStringsSep ":" arr;
-  in toString (
+  in builtins.concatStringsSep ":" (
     # home-manager level
     (home-manager.home.sessionPath or [])
   ++lib.optionals (user != {}) [ 

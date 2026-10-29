@@ -1,5 +1,6 @@
 { sources, ... }: let
-  # nix-select with .**. support => auto flatten attrValues / list
+  # nix-select with:
+  # - .**. => auto flatten attrValues / list
   # - **1 = unique list
   # - **1(group) = groupBy (unique list)
   # - **(group) = groupBy
