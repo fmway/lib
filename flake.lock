@@ -1,5 +1,20 @@
 {
   "nodes": {
+    "fmway-parser": {
+      "locked": {
+        "lastModified": 1793256833,
+        "narHash": "sha256-2HFJwAAL6ToNkGtG7JYtngT5fGija1wzYizakOu1hCs=",
+        "owner": "fmway",
+        "repo": "parser",
+        "rev": "5964e40562fe2a3d1b485d678fcaa7e8e2db06a3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "fmway",
+        "repo": "parser",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1791085218,
@@ -17,6 +32,7 @@
     },
     "root": {
       "inputs": {
+        "fmway-parser": "fmway-parser",
         "nixpkgs": "nixpkgs"
       }
     }

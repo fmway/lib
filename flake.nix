@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:nix-community/nixpkgs.lib";
+    fmway-parser.url = "github:fmway/parser";
   };
 
   outputs = x: import ./flake-module.nix x;

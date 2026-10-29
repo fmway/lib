@@ -4,8 +4,6 @@ in {
   readTree = import sources.read-tree {};
   import-tree = import sources.import-tree;
   mapListToAttrs = fn: l: lib.listToAttrs (map fn l);
-  lexer  = import "${sources.nix-parsec}/lexer.nix" { parsec = self'.parsec; };
-  parsec = import "${sources.nix-parsec}/parsec.nix";
   eachSystem = systems: fn: let
     outputsParams = builtins.listToAttrs (map (system: {
       name = system;

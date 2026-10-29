@@ -15,9 +15,7 @@
       depth = 0;
       inherit variables;
     };
-  in res // {
-    fmway = res.fmway // res.fmway.parser;
-  };
+  in inputs.fmway-parser.lib // res;
   variables = {
     inherit sources final;
     self' = self;
