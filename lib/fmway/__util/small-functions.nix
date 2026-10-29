@@ -447,7 +447,7 @@ in {
     oneliner = x'.__oneliner or oneliner' == true;
     sep = if oneliner then " " else "\n";
     genPad = pad: if oneliner then "" else stringMultiply " " pad;
-  in (if oneliner then "" else genDoc pad x') + {
+  in (if oneliner then "" else genDoc pad x') + rec {
     string = lib.strings.escapeNixString x;
     list =
       if x == [] then "[]"
@@ -462,8 +462,9 @@ in {
         (if oneliner then "" else genDoc (pad + 2) v) +
         genPad (pad + 2) + "${lib.strings.escapeNixIdentifier k} = ${genNix' (pad + 2) (v.__oneliner or oneliner) (removeDoc v)};"
       ) x}${sep}${genPad pad}}";
-    null = "null";
-    int = toString x;
+    "null" = "null";
+    int  = toString x;
+    path = int;
     bool = if x then "true" else "false";
     lambda = "<<FUNC>>";
   }.${t} or (throw "Unknown type ${t}");
